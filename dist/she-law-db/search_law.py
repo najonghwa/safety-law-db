@@ -225,6 +225,15 @@ def main():
     if not a or a[0] in ("-h", "--help"):
         print(USAGE)
         return
+    if not os.path.exists(DB):
+        print("data/laws.db 가 없습니다.\n"
+              "저장소 최상위에서 아래 순서로 DB를 먼저 만드세요:\n"
+              "  python collector.py / annex_collector.py /"
+              " kosha_collector.py / substance_collector.py\n"
+              "  python importer.py\n"
+              "  python verify_db.py\n"
+              "그 뒤 생성된 data/laws.db 를 이 폴더의 data/ 에 복사하면 됩니다.")
+        sys.exit(1)
     cmd = a[0]
     if cmd == "find" and len(a) >= 2:
         tier = ""
