@@ -1,0 +1,14 @@
+# 비밀키 — 절대 커밋 금지
+kosha_config.json
+*.key
+.env
+
+# 대용량 산출물 (collector 돌리면 생성됨)
+bundle/
+data/
+dist/mail/
+dist/she-law-db/data/
+
+# 파이썬 캐시
+__pycache__/
+*.pyc

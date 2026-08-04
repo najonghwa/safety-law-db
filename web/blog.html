@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>블로그용 시각자료 — SHE 법령 DB</title>
+<style>
+  *{box-sizing:border-box}
+  body{background:#f7f7f7; font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;
+    color:#222; margin:0; padding:34px 0; line-height:1.55}
+  .note{max-width:900px; margin:0 auto 28px; color:#888; font-size:13px; text-align:center}
+  .fig{background:#fff; border:1px solid #ddd; max-width:900px; margin:0 auto 44px;
+    padding:30px 38px}
+  .fig h2{font-size:17px; margin:0 0 6px; letter-spacing:-.3px}
+  .fig .sub{color:#777; font-size:13px; margin-bottom:22px}
+  .b{border:1px solid #444; background:#fff; padding:12px 16px; font-size:13px; text-align:center}
+  .b b{display:block; margin-bottom:3px; font-size:13.5px}
+  .b .d{color:#555; font-size:12px}
+  .flow{display:flex; align-items:center; justify-content:center; gap:0; flex-wrap:wrap}
+  .ar{display:flex; flex-direction:column; align-items:center; margin:0 3px; flex-shrink:0}
+  .ar .lab{background:#eee; border:1px solid #aaa; font-size:11px; padding:1px 7px;
+    margin-bottom:2px; white-space:nowrap}
+  .ar .ln{font-size:15px; color:#333; letter-spacing:-2px; white-space:nowrap}
+  .down{text-align:center; margin:8px 0; color:#333}
+  .down .lab{background:#eee; border:1px solid #aaa; font-size:11px; padding:1px 7px}
+  table{border-collapse:collapse; width:100%; font-size:13px}
+  th,td{border:1px solid #bbb; padding:8px 12px; text-align:left; vertical-align:top}
+  th{background:#f2f2f2; text-align:center; font-size:12.5px}
+  td.c{text-align:center}
+  .cmp{display:flex; gap:18px; flex-wrap:wrap}
+  .cmp>div{flex:1; min-width:300px; border:1px solid #444}
+  .cmp h3{margin:0; padding:9px 0; font-size:13.5px; text-align:center;
+    border-bottom:1px solid #444; background:#f2f2f2}
+  .cmp ul{margin:0; padding:14px 16px 14px 32px}
+  .cmp li{font-size:13px; margin:7px 0}
+  .cmp .foot{border-top:1px dashed #999; padding:8px 0; text-align:center;
+    font-size:12.5px; font-weight:bold}
+  .doc{border:1px solid #444}
+  .doc .qq{padding:13px 18px; font-size:13.5px; background:#f2f2f2; border-bottom:1px solid #444}
+  .doc .qq::before{content:"질문  "; font-weight:bold}
+  .doc .proc{padding:10px 18px; font-size:12px; color:#555; border-bottom:1px dashed #999}
+  .doc .sect{padding:12px 18px}
+  .doc .sect h4{margin:0 0 8px; font-size:13px}
+  .doc .sect ol{margin:0; padding-left:22px}
+  .doc .sect li{font-size:13px; margin:7px 0}
+  .doc .ref{color:#1a3b5d; font-weight:bold}
+  .doc .warn{border-top:1px dashed #999; padding:9px 18px; font-size:12px; color:#555}
+  .badge{display:inline-block; border:1px solid #444; padding:1px 8px; font-size:12px;
+    font-weight:bold}
+  .ok{color:#1e7a34; font-weight:bold} .no{color:#9a4a38; font-weight:bold}
+</style>
+</head>
+<body>
+<div class="note">아래 카드를 하나씩 캡처해서 블로그의 [그림 N] 자리에 붙여넣으세요 (Win+Shift+S)</div>
+
+<!-- 그림 1 -->
+<div class="fig">
+  <h2>그림 1. 같은 질문, 두 가지 경로</h2>
+  <div class="sub">"신규 물질 ○○을 도입하려는데 인허가가 뭐가 필요하지?" — 질문 자체에 회사 정보가 들어 있음</div>
+  <div class="cmp">
+    <div>
+      <h3>외부 AI 서비스에 질문</h3>
+      <ul>
+        <li>신규 프로젝트·도입 물질 정보가 회사 밖 서버로 전송</li>
+        <li>AI가 학습 기억에 의존해 답변 — 그럴듯한 추측 위험</li>
+        <li>조 번호만 알려주고 원문은 직접 찾아야 함</li>
+      </ul>
+      <div class="foot">기밀 노출 우려 + 오답 리스크</div>
+    </div>
+    <div>
+      <h3>사내 Claude + 법령 DB</h3>
+      <ul>
+        <li>질문·답변이 사내망 안에서만 처리</li>
+        <li>DB를 검색해 조문 근거를 인용 — 근거 없으면 답하지 않음</li>
+        <li>조문 원문을 함께 제시 — 따로 찾아볼 필요 없음</li>
+      </ul>
+      <div class="foot">보안 · 문서 신뢰성</div>
+    </div>
+  </div>
+</div>
+
+<!-- 그림 2 : 통합 구조 -->
+<div class="fig">
+  <h2>그림 2. 흩어져 있던 법령이 하나의 DB로</h2>
+  <div class="sub">영역별로 흩어진 법률·고시·별표·기술지침을 수집해 단일 검색 체계로 통합</div>
+  <svg viewBox="0 0 900 590" width="100%" xmlns="http://www.w3.org/2000/svg"
+       font-family="'Malgun Gothic',sans-serif">
+    <defs>
+      <marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+        <path d="M0,0 L8,4 L0,8 z" fill="#444"/>
+      </marker>
+    </defs>
+    <g>
+      <rect x="14" y="14" width="252" height="64" fill="#fff" stroke="#444"/>
+      <text x="140" y="38" text-anchor="middle" font-size="13" font-weight="bold">화학물질</text>
+      <text x="140" y="58" text-anchor="middle" font-size="11" fill="#555">화관법 · 화평법 + 관련 고시 13건</text>
+
+      <rect x="14" y="92" width="252" height="64" fill="#fff" stroke="#444"/>
+      <text x="140" y="116" text-anchor="middle" font-size="13" font-weight="bold">산업안전</text>
+      <text x="140" y="136" text-anchor="middle" font-size="11" fill="#555">산안법 · 안전보건기준규칙 + 고시 4건</text>
+
+      <rect x="14" y="170" width="252" height="64" fill="#fff" stroke="#444"/>
+      <text x="140" y="194" text-anchor="middle" font-size="13" font-weight="bold">중대재해</text>
+      <text x="140" y="214" text-anchor="middle" font-size="11" fill="#555">중대재해처벌법 · 시행령</text>
+
+      <rect x="14" y="248" width="252" height="64" fill="#fff" stroke="#444"/>
+      <text x="140" y="272" text-anchor="middle" font-size="13" font-weight="bold">위험물 · 가스</text>
+      <text x="140" y="292" text-anchor="middle" font-size="11" fill="#555">위험물안전관리법(+세부기준) · 고압가스법</text>
+
+      <rect x="14" y="326" width="252" height="64" fill="#fff" stroke="#444"/>
+      <text x="140" y="350" text-anchor="middle" font-size="13" font-weight="bold">환경</text>
+      <text x="140" y="370" text-anchor="middle" font-size="11" fill="#555">폐기물관리법 · 대기환경 · 물환경보전법</text>
+
+      <rect x="14" y="404" width="252" height="64" fill="#fff" stroke="#444"/>
+      <text x="140" y="428" text-anchor="middle" font-size="13" font-weight="bold">소방 · 연구실</text>
+      <text x="140" y="448" text-anchor="middle" font-size="11" fill="#555">소방 3법(기본·예방·시설) · 연구실안전법</text>
+
+      <rect x="14" y="482" width="252" height="64" fill="#fff" stroke="#444"/>
+      <text x="140" y="506" text-anchor="middle" font-size="13" font-weight="bold">기술지침</text>
+      <text x="140" y="526" text-anchor="middle" font-size="11" fill="#555">KOSHA Guide 1,352건</text>
+    </g>
+    <g stroke="#444" stroke-width="1.2" fill="none">
+      <path d="M266 46  L 355 250" marker-end="url(#ah)"/>
+      <path d="M266 124 L 355 262" marker-end="url(#ah)"/>
+      <path d="M266 202 L 355 274" marker-end="url(#ah)"/>
+      <path d="M266 280 L 355 288" marker-end="url(#ah)"/>
+      <path d="M266 358 L 355 302" marker-end="url(#ah)"/>
+      <path d="M266 436 L 355 316" marker-end="url(#ah)"/>
+      <path d="M266 514 L 355 330" marker-end="url(#ah)"/>
+    </g>
+    <rect x="288" y="270" width="58" height="18" fill="#eee" stroke="#aaa" stroke-width="0.8"/>
+    <text x="317" y="283" text-anchor="middle" font-size="10.5" fill="#333">수집·통합</text>
+
+    <rect x="358" y="218" width="230" height="150" fill="#f2f2f2" stroke="#444" stroke-width="1.6"/>
+    <text x="473" y="252" text-anchor="middle" font-size="14.5" font-weight="bold">통합 법령 DB</text>
+    <line x1="378" y1="272" x2="568" y2="272" stroke="#aaa" stroke-width="0.8"/>
+    <text x="473" y="296" text-anchor="middle" font-size="11.5">조문 3,867 · 별표 519</text>
+    <text x="473" y="318" text-anchor="middle" font-size="11.5">물질(CAS) 매핑 2,861종</text>
+    <text x="473" y="340" text-anchor="middle" font-size="11.5">검색 단위 10,509건</text>
+
+    <g stroke="#444" stroke-width="1.2" fill="none">
+      <path d="M588 250 L 668 158" marker-end="url(#ah)"/>
+      <path d="M588 293 L 668 293" marker-end="url(#ah)"/>
+      <path d="M588 336 L 668 428" marker-end="url(#ah)"/>
+    </g>
+    <rect x="606" y="284" width="42" height="18" fill="#eee" stroke="#aaa" stroke-width="0.8"/>
+    <text x="627" y="297" text-anchor="middle" font-size="10.5" fill="#333">검색</text>
+
+    <rect x="670" y="126" width="216" height="64" fill="#fff" stroke="#444"/>
+    <text x="778" y="150" text-anchor="middle" font-size="13" font-weight="bold">조문 · 별표 검색</text>
+    <text x="778" y="170" text-anchor="middle" font-size="11" fill="#555">키워드 + 동의어 확장</text>
+
+    <rect x="670" y="261" width="216" height="64" fill="#fff" stroke="#444"/>
+    <text x="778" y="285" text-anchor="middle" font-size="13" font-weight="bold">Claude 질의 응답</text>
+    <text x="778" y="305" text-anchor="middle" font-size="11" fill="#555">조문 원문 인용 · 없으면 거부</text>
+
+    <rect x="670" y="396" width="216" height="64" fill="#fff" stroke="#444"/>
+    <text x="778" y="420" text-anchor="middle" font-size="13" font-weight="bold">물질 규제 조회</text>
+    <text x="778" y="440" text-anchor="middle" font-size="11" fill="#555">CAS → 지정 여부 · 규정수량</text>
+  </svg>
+</div>
+
+<!-- 그림 3 : 수록 법령 -->
+<div class="fig">
+  <h2>그림 3. 수록 법령과 출처</h2>
+  <div class="sub">전부 정부 공식 공개 데이터 — 각 법령은 법률·시행령·시행규칙 3단 수록, 법제처 기준 현행 시행본</div>
+  <table>
+    <tr><th style="width:22%">분류</th><th>수록 내용</th><th style="width:19%">출처</th></tr>
+    <tr><td class="c"><b>화학물질</b></td>
+        <td>화학물질관리법(화관법) · 화학물질등록평가법(화평법)<br>
+        <span style="color:#777; font-size:12px">+ 유해화학물질 규정수량 규정, 지정고시, 보관·저장시설 고시,
+        소량기준 고시, 화학사고예방관리계획서 규정 등 13건</span></td>
+        <td class="c" rowspan="6">국가법령정보센터<br><span style="font-size:11px; color:#777">law.go.kr</span></td></tr>
+    <tr><td class="c"><b>산업안전</b></td>
+        <td>산업안전보건법 · 안전보건기준에 관한 규칙(690개조)<br>
+        <span style="color:#777; font-size:12px">+ 노출기준, MSDS 기준, 공정안전보고서(PSM) 규정, 신규화학물질 조사 고시</span></td></tr>
+    <tr><td class="c"><b>중대재해</b></td><td>중대재해 처벌 등에 관한 법률 · 시행령</td></tr>
+    <tr><td class="c"><b>위험물·가스</b></td><td>위험물안전관리법(+세부기준 172개조) · 고압가스 안전관리법</td></tr>
+    <tr><td class="c"><b>환경</b></td><td>폐기물관리법 · 대기환경보전법 · 물환경보전법</td></tr>
+    <tr><td class="c"><b>소방·연구실</b></td><td>소방기본법 · 화재예방법 · 소방시설법 · 연구실안전법</td></tr>
+    <tr><td class="c"><b>기술지침</b></td>
+        <td>KOSHA Guide — 화공·보건·공정안전 등 16개 분야<br>
+        <span style="color:#777; font-size:12px">지침 1,352건 (PDF 원문 포함)</span></td>
+        <td class="c">공공데이터포털<br><span style="font-size:11px; color:#777">data.go.kr (무료 키)</span></td></tr>
+    <tr><td class="c"><b>물질 규제 목록</b></td>
+        <td>인체등유해성물질 · 제한 · 금지 · 사고대비물질 분류<br>
+        <span style="color:#777; font-size:12px">2,276건 (보조 자료)</span></td>
+        <td class="c">화학물질종합정보<br><span style="font-size:11px; color:#777">icis.mcee.go.kr</span></td></tr>
+  </table>
+</div>
+
+<!-- 그림 4 : 수집 흐름 -->
+<div class="fig">
+  <h2>그림 4. 수집 흐름</h2>
+  <div class="sub">사람이 사이트에서 법령을 열람·복사하던 과정을 프로그램이 자동 반복 — 세 출처가 하나의 DB로 합류</div>
+  <svg viewBox="0 0 830 330" width="100%" xmlns="http://www.w3.org/2000/svg"
+       font-family="'Malgun Gothic',sans-serif">
+    <defs>
+      <marker id="ah4" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+        <path d="M0,0 L8,4 L0,8 z" fill="#444"/>
+      </marker>
+    </defs>
+    <rect x="14" y="16" width="228" height="70" fill="#fff" stroke="#444"/>
+    <text x="128" y="42" text-anchor="middle" font-size="13" font-weight="bold">국가법령정보센터</text>
+    <text x="128" y="61" text-anchor="middle" font-size="11" fill="#555">법령·고시 본문, 별표</text>
+    <text x="128" y="77" text-anchor="middle" font-size="11" fill="#555">시행일 표기</text>
+
+    <rect x="14" y="130" width="228" height="70" fill="#fff" stroke="#444"/>
+    <text x="128" y="156" text-anchor="middle" font-size="13" font-weight="bold">공공데이터포털</text>
+    <text x="128" y="175" text-anchor="middle" font-size="11" fill="#555">KOSHA 지침 목록·PDF</text>
+    <text x="128" y="191" text-anchor="middle" font-size="11" fill="#555">(무료 인증키)</text>
+
+    <rect x="14" y="244" width="228" height="70" fill="#fff" stroke="#444"/>
+    <text x="128" y="270" text-anchor="middle" font-size="13" font-weight="bold">화학물질종합정보</text>
+    <text x="128" y="289" text-anchor="middle" font-size="11" fill="#555">물질 분류 목록</text>
+    <text x="128" y="305" text-anchor="middle" font-size="11" fill="#555">(보조 자료)</text>
+
+    <g stroke="#444" stroke-width="1.3" fill="none">
+      <path d="M242 51  L 330 140" marker-end="url(#ah4)"/>
+      <path d="M242 165 L 330 165" marker-end="url(#ah4)"/>
+      <path d="M242 279 L 330 190" marker-end="url(#ah4)"/>
+    </g>
+    <rect x="248" y="156" width="76" height="18" fill="#eee" stroke="#aaa" stroke-width="0.8"/>
+    <text x="286" y="169" text-anchor="middle" font-size="10.5" fill="#333">정기적 수집</text>
+
+    <rect x="334" y="118" width="244" height="94" fill="#fff" stroke="#444"/>
+    <text x="456" y="144" text-anchor="middle" font-size="13.5" font-weight="bold">수집 프로그램</text>
+    <text x="456" y="164" text-anchor="middle" font-size="11" fill="#555">조문 단위로 분해·정리</text>
+    <text x="456" y="181" text-anchor="middle" font-size="11" fill="#555">시행일은 법제처 표기 그대로</text>
+    <text x="456" y="198" text-anchor="middle" font-size="11" fill="#555">개정분만 새로 수집</text>
+
+    <path d="M578 165 L 646 165" stroke="#444" stroke-width="1.3" fill="none" marker-end="url(#ah4)"/>
+    <rect x="588" y="143" width="42" height="18" fill="#eee" stroke="#aaa" stroke-width="0.8"/>
+    <text x="609" y="156" text-anchor="middle" font-size="10.5" fill="#333">적재</text>
+
+    <rect x="650" y="123" width="166" height="84" fill="#f2f2f2" stroke="#444" stroke-width="1.5"/>
+    <text x="733" y="158" text-anchor="middle" font-size="13.5" font-weight="bold">통합 법령 DB</text>
+    <text x="733" y="180" text-anchor="middle" font-size="11" fill="#555">(폴더 복사로 이동)</text>
+  </svg>
+</div>
+
+<!-- 그림 5 : 갱신 -->
+<div class="fig">
+  <h2>그림 5. 법이 개정되면 — 바뀐 것만 갱신</h2>
+  <div class="sub">법령마다 개정 시 바뀌는 버전 번호가 있어 자동 판별 가능</div>
+  <div class="flow">
+    <div class="b" style="width:130px">주 1회<br>점검 실행</div>
+    <div class="ar"><span class="ln">───▶</span></div>
+    <div class="b" style="width:170px">전체 법령 버전 비교<br><b>개정 2건 발견</b></div>
+    <div class="ar"><span class="ln">───▶</span></div>
+    <div class="b" style="width:150px">개정된 2건만<br>다운로드</div>
+    <div class="ar"><span class="ln">───▶</span></div>
+    <div class="b" style="width:150px; background:#f2f2f2">DB 갱신<br>기준일 표시</div>
+  </div>
+  <div style="text-align:center; margin-top:12px; font-size:12px; color:#777">
+    나머지는 건너뜀 — 개정이 없으면 몇 초 만에 종료</div>
+</div>
+
+<!-- 그림 6 : 사내 적용 -->
+<div class="fig">
+  <h2>그림 6. 사내 적용 — 폴더 하나로 배포</h2>
+  <div class="sub">법령 DB·검색 도구·답변 규칙을 한 폴더에 담아두면, 받아서 열고 질문하면 끝</div>
+  <div class="flow">
+    <div class="b" style="width:210px"><b>배포 폴더</b>
+      <span class="d">법령 DB + 검색 도구<br>+ 답변 규칙</span></div>
+    <div class="ar"><span class="lab">공유</span><span class="ln">───▶</span></div>
+    <div class="b" style="width:200px"><b>사내 공유 위치</b>
+      <span class="d">개정 시 이 한 곳만 갱신</span></div>
+    <div class="ar"><span class="lab">받기</span><span class="ln">───▶</span></div>
+    <div class="b" style="width:230px"><b>각자 작업 환경</b>
+      <span class="d">사내 개발 환경 · Claude</span></div>
+  </div>
+  <div class="down" style="margin:18px 0 8px"><span class="lab">쓰는 순서 — 3단계</span></div>
+  <div class="flow">
+    <div class="b" style="width:200px"><b>① 폴더 받기</b>
+      <span class="d">Claude에게 "이 폴더<br>가져와줘"라고 요청</span></div>
+    <div class="ar"><span class="ln">───▶</span></div>
+    <div class="b" style="width:200px"><b>② 폴더 열기</b>
+      <span class="d">채팅창에서 이 폴더 선택<br>(DB를 쓰겠다는 스위치)</span></div>
+    <div class="ar"><span class="ln">───▶</span></div>
+    <div class="b" style="width:230px; background:#f2f2f2"><b>③ 질문 → 근거 인용 답변</b>
+      <span class="d">평소처럼 자연어로 질문<br>조문 원문과 근거 확인 표시 포함</span></div>
+  </div>
+</div>
+
+<!-- 그림 7 : 신뢰성 장치 -->
+<div class="fig">
+  <h2>그림 7. 답을 믿을 수 있게 만드는 장치</h2>
+  <div class="sub">법규에서 제일 위험한 건 그럴듯한 오답 — DB에서 찾은 답과 AI의 추측을 눈으로 구분 가능하게 구성</div>
+  <table>
+    <tr><th style="width:24%">장치</th><th>내용</th></tr>
+    <tr><td class="c"><b>근거 확인 표시</b></td>
+        <td>답변 첫 줄에 <span class="badge">✅ DB 근거</span>
+        <span class="badge">⚠ 부분 근거</span>
+        <span class="badge">❌ 근거 없음</span> 중 하나를 표시 —
+        DB에서 찾은 답인지 한눈에 구분</td></tr>
+    <tr><td class="c"><b>인용 강제</b></td>
+        <td>모든 사실 문장 끝에 <b>[화학물질관리법 제28조]</b> 형식 근거.
+        검색 결과에 실제로 있던 조문만 인용 가능</td></tr>
+    <tr><td class="c"><b>조문 원문 동봉</b></td>
+        <td>조 번호만 던지지 않고 원문 발췌를 함께 —
+        〖원문〗 "설치를 마친 자는 검사기관에서 설치검사를 받아야 하며…"</td></tr>
+    <tr><td class="c"><b>없으면 거부</b></td>
+        <td>근거를 못 찾으면 지어내지 않고 "DB에서 근거를 찾지 못했습니다"</td></tr>
+    <tr><td class="c"><b>기준일 표시</b></td>
+        <td>답변마다 <b>※ DB 기준일: 2026-07-21</b> 표기.
+        90일이 지나면 경고가 함께 나옴</td></tr>
+  </table>
+</div>
+
+<!-- 그림 8 : 물질 조회 -->
+<div class="fig">
+  <h2>그림 8. 물질 하나로 규제 전체 조회</h2>
+  <div class="sub">별표에서 화학물질 번호(CAS)를 추출해 만든 매핑 — 2,861종, 고시 원문 대조 기준</div>
+  <table>
+    <tr><th colspan="2">조회: 디메틸아민(DMA) — CAS 124-40-3</th></tr>
+    <tr><td style="width:44%"><b>유해화학물질 지정</b></td>
+        <td class="ok">등재 — 고유번호 2023-1-1134<br>
+        <span style="color:#555; font-weight:normal">규정수량 하위 2톤 / 상위 50톤
+        〈유해화학물질의 규정수량에 관한 규정 별표2〉</span></td></tr>
+    <tr><td>관리대상 유해물질</td><td class="ok">등재 — 안전보건기준규칙 별표12</td></tr>
+    <tr><td>작업환경측정 대상</td><td class="ok">등재 — 산안법 시행규칙 별표21</td></tr>
+    <tr><td>노출기준 설정 물질</td><td class="ok">등재 — 노출기준 고시 별표1</td></tr>
+    <tr><td>가연성가스</td><td class="ok">해당 — 고압가스법 시행규칙 제2조에 명시</td></tr>
+  </table>
+  <div style="margin-top:12px; font-size:12.5px; color:#555">
+    ※ 규제 대상 여부는 AI가 추론하지 않음. 고시 별표와 대조한 결과만 제시하고,
+    목록에 없으면 "확인되지 않음"으로 답변</div>
+</div>
+
+<!-- 그림 9 : 실전 예시 -->
+<div class="fig">
+  <h2>그림 9. 실전 예시 — 신규 프로젝트의 보관 검토</h2>
+  <div class="sub">신규 사용 물질·구매 계획 같은 민감한 내용도 사내 환경이라 그대로 질문 가능</div>
+  <div class="doc">
+    <div class="qq">신규 프로젝트에서 DMA를 추가 구매해 일반 자재창고에 보관하려고 한다.
+      검토할 사항은 무엇인가?</div>
+    <div class="proc">Claude 동작 — ① CAS 124-40-3 규제 등재 조회 → ② 보관·저장 관련 조문 검색
+      → ③ 인용할 조문의 <b>원문까지 확보</b> → ④ 근거 확인 표시와 함께 답변</div>
+    <div class="sect">
+      <h4><span class="badge">✅ DB 근거</span> &nbsp;규제 등재 확인 (고시 별표 대조)</h4>
+      <ol>
+        <li><b>유해화학물질</b>(인체급성유해성물질) — 고유번호 2023-1-1134,
+          <b>규정수량 하위 2톤·상위 50톤</b> <span class="ref">[유해화학물질의 규정수량에 관한 규정 별표2]</span></li>
+        <li>관리대상 유해물질 <span class="ref">[안전보건기준규칙 별표12]</span> ·
+          작업환경측정 대상 <span class="ref">[산안법 시행규칙 별표21]</span></li>
+        <li>가연성가스 <span class="ref">[고압가스 안전관리법 시행규칙 제2조]</span></li>
+      </ol>
+    </div>
+    <div class="sect" style="border-top:1px dashed #999">
+      <h4>검토 체크리스트</h4>
+      <ol>
+        <li><b>유해화학물질이므로 일반 자재창고 보관 불가</b> — 보관시설 설치·관리 기준을
+          충족한 시설이어야 함<br>
+          〖원문〗 "유해화학물질 취급시설은 … 배치·설치 및 관리 기준에 따라 설치·운영되어야 한다."
+          <span class="ref">[화학물질관리법 제24조]</span></li>
+        <li><b>영업허가 대상 여부 확인</b> — 보관·저장업 해당 시 사전 허가
+          <span class="ref">[화학물질관리법 제28조]</span></li>
+        <li><b>취급량이 하위 규정수량(2톤)을 넘으면</b> 화학사고예방관리계획서 작성·제출
+          <span class="ref">[화학물질관리법 제23조]</span></li>
+        <li>취급 형태가 가압 용기(액화가스)라면 고압가스법 저장 기준 병행 검토
+          <span class="ref">[고압가스 안전관리법 제4조]</span></li>
+        <li>관리대상 유해물질로서 국소배기 등 설비 기준
+          <span class="ref">[안전보건기준규칙 제420조 이하]</span> ·
+          작업환경측정·특수건강진단 대상 변동 확인</li>
+      </ol>
+    </div>
+    <div class="warn">※ 조 번호만 던지지 않고 <b>조문 원문을 함께</b> 제시 — 사용자가 따로 찾아볼 필요 없음.
+      근거를 못 찾은 항목은 추측하지 않고 "확인 불가"로 분리 표기. 최종 판단 전 원문 확인 필수</div>
+  </div>
+</div>
+
+<!-- 그림 10 : 데이터 품질 -->
+<div class="fig">
+  <h2>그림 10. 건수는 맞는데 내용이 비어 있었다</h2>
+  <div class="sub">오답 제보로 발견한 문제 — 에러 없이 조용히 지나가는 실패가 가장 잡기 어려움</div>
+  <div class="flow" style="margin-bottom:18px">
+    <div class="b" style="width:168px"><b>실무자 제보</b>
+      <span class="d">"DMA는 유해화학물질인데<br>아니라고 나오는데?"</span></div>
+    <div class="ar"><span class="ln">──▶</span></div>
+    <div class="b" style="width:168px"><b>원인 추적</b>
+      <span class="d">별표 파일은 6만 자<br>DB에는 18자</span></div>
+    <div class="ar"><span class="ln">──▶</span></div>
+    <div class="b" style="width:180px"><b>진범</b>
+      <span class="d">한글 파일의 NULL 문자<br>→ 문자열 잘림</span></div>
+    <div class="ar"><span class="ln">──▶</span></div>
+    <div class="b" style="width:130px; background:#f2f2f2"><b>수정 +<br>감사 도구</b></div>
+  </div>
+  <table>
+    <tr><th style="width:34%">항목</th><th style="width:22%">발견 당시</th><th>수정 후</th></tr>
+    <tr><td>노출기준 별표1</td><td class="c no">18자</td><td class="c ok">62,318자</td></tr>
+    <tr><td>규정수량 별표2</td><td class="c no">20,015자</td><td class="c ok">188,916자</td></tr>
+    <tr><td>물질(CAS) 매핑</td><td class="c no">1,278종</td><td class="c ok">2,861종</td></tr>
+    <tr><td>DMA 유해화학물질 판정</td><td class="c no">미확인</td><td class="c ok">등재 확인</td></tr>
+  </table>
+  <div style="margin-top:14px; font-size:12.5px; color:#555">
+    건수(519건)는 정상이고 에러도 없었음. <b>내용을 재보지 않으면 잡히지 않는 실패</b>라,
+    이후 원본 파일과 DB를 대조해 손실률을 재는 감사 도구를 만들어 갱신 때마다 실행</div>
+</div>
+
+<!-- 그림 11 : 효과 -->
+<div class="fig">
+  <h2>그림 11. 도입 효과 정리</h2>
+  <div class="sub"></div>
+  <table>
+    <tr><th style="width:18%"></th><th>일반 AI 사용</th><th>법령 DB + 사내 Claude</th></tr>
+    <tr><td class="c"><b>보안</b></td><td>질문이 외부 서버로 전송</td>
+        <td><b>사내망 안에서만</b> 처리</td></tr>
+    <tr><td class="c"><b>문서 신뢰성</b></td><td>기억 기반 추측 — 출처 불명</td>
+        <td><b>조문 근거 인용 강제</b>, 근거 없으면 답변하지 않음</td></tr>
+    <tr><td class="c"><b>근거 확인</b></td><td>조 번호만, 원문은 직접 찾아야</td>
+        <td><b>조문 원문 발췌를 함께</b> 제시</td></tr>
+    <tr><td class="c"><b>물질 판정</b></td><td>추론에 의존</td>
+        <td>고시 별표 대조 — <b>CAS 2,861종</b></td></tr>
+    <tr><td class="c"><b>최신성</b></td><td>학습 시점에 고정</td>
+        <td>주 1회 개정분 갱신 + 기준일 표시</td></tr>
+    <tr><td class="c"><b>구축 비용</b></td><td>—</td><td>0원 (전부 공공데이터)</td></tr>
+  </table>
+</div>
+
+</body>
+</html>

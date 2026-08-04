@@ -1,0 +1,9 @@
+# 비밀키·설정은 절대 커밋 금지
+kosha_config.json
+llm_config.json
+*.key
+.env
+
+# 파이썬 캐시
+__pycache__/
+*.pyc
