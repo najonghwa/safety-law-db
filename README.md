@@ -39,6 +39,15 @@ python verify_db.py            # 품질 감사 (손실·누락 점검)
 
 `verify_db.py`가 "전 항목 통과"로 끝나면 정상입니다.
 
+위 여섯 줄을 한 번에 돌리려면 `python update_db.py` (윈도우는 `DB갱신.bat`
+더블클릭). 중간에 하나라도 실패하면 거기서 멈춥니다 — 깨진 DB가 다음 단계로
+넘어가지 않게 하기 위해서입니다.
+
+### 법령 개정 반영
+
+`collector.py`는 **바뀐 법령만** 다시 받습니다(lsiSeq·시행일 비교). 개정이 없어도
+수집일은 갱신되고, 그 날짜가 검색 결과에 함께 표시됩니다.
+
 ## 3. Claude Code로 검색
 
 `dist/she-law-db/` 가 Claude Code용 폴더입니다. 만든 DB를 넣어줍니다:
@@ -79,7 +88,9 @@ python search_law.py laws 화학물질관리법
 | `kosha_collector.py` | KOSHA 지침 목록·PDF (data.go.kr 키 필요) |
 | `substance_collector.py` | 물질 규제 목록 (ICIS) |
 | `importer.py` | 수집물 → SQLite DB (파싱·CAS 추출·NULL 정리·별표 청크) |
-| `verify_db.py` | **DB 품질 감사** — 원본 대비 손실률·누락·검색 스팟체크 |
+| `verify_db.py` | **DB 품질 감사** — 수집 대상 대조·손실률·누락·검색 스팟체크 |
+| `update_db.py` / `DB갱신.bat` | 수집→적재→감사를 한 번에 실행 |
+| `make_web_db.py` | KOSHA를 뺀 경량 DB 생성 (웹 배포용, 100MB → 37MB) |
 | `laws.json` | **수집 대상 법령 목록** — 여기에 이름 추가하면 법 늘어남 |
 | `synonyms.json` | 현장용어→법령용어 사전 (폐액→지정폐기물 등) |
 | `dist/she-law-db/search_law.py` | Claude가 호출하는 검색 CLI (표준 라이브러리만) |
@@ -97,4 +108,7 @@ python search_law.py laws 화학물질관리법
 - HWP·PDF 파싱 과정에서 일부 별표가 잘리는 경우가 있어, **초기 셋업 시
   `verify_db.py`로 반드시 점검**하는 것을 권장. (과거 NULL 문자로 별표 본문이
   통째로 잘린 사례가 있어 importer에 정리 로직을 넣어둠)
+- 수집이 중간에 끊기면 법령 하나가 통째로 빠질 수 있는데, 건수 합계만 봐서는
+  드러나지 않는다. `verify_db.py`의 [1] 검사가 `laws.json`과 이름을 하나씩
+  대조해 잡는다. (실제로 화학물질관리법이 빠진 채 나머지 검사를 전부 통과한 적 있음)
 - 답변은 참고용 — 법적 판단 전 원문(law.go.kr) 확인 필요.

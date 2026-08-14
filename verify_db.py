@@ -6,11 +6,12 @@
  몇 주 동안 아무도 몰랐다. 이런 실패는 건수가 아니라 내용을 재봐야 잡힌다.)
 
 검사 항목
-  [1] 구성 요약        — 종류별 건수가 기대 범위인가
-  [2] 본문 무결성      — NULL/제어문자 잔존, 비정상적으로 짧은 본문
-  [3] 별표 손실률      — 원본 파일에서 재추출한 길이 vs DB 저장 길이
-  [4] 물질 스팟체크    — 주요 취급 화학물질 20종의 규제 매핑 존재 여부
-  [5] 검색 스팟체크    — 대표 질의가 기대 문서를 상위에서 찾는가
+  [1] 수집 대상 대조   — laws.json의 법령이 하나도 빠짐없이 들어갔는가
+  [2] 구성 요약        — 종류별 건수가 기대 범위인가
+  [3] 본문 무결성      — NULL/제어문자 잔존, 비정상적으로 짧은 본문
+  [4] 별표 손실률      — 원본 파일에서 재추출한 길이 vs DB 저장 길이
+  [5] 물질 스팟체크    — 주요 취급 화학물질 20종의 규제 매핑 존재 여부
+  [6] 검색 스팟체크    — 대표 질의가 기대 문서를 상위에서 찾는가
 
 실행: python verify_db.py          (요약만)
       python verify_db.py --full   (별표 손실률 전수 — 원본 재파싱, 수 분)
@@ -37,9 +38,43 @@ def ok(msg):
     print(f"    [v] {msg}")
 
 
-# ── [1] 구성 요약 ─────────────────────────────────────────────
+# ── [1] 수집 대상 대조 ────────────────────────────────────────
+def check_coverage(con):
+    """laws.json에 적어 둔 법령이 하나도 빠짐없이 DB에 있는가.
+
+    건수 합계만 보면 법령 하나가 통째로 빠져도 알 수 없다. 실제로 수집이
+    중간에 끊긴 뒤 manifest에서 화학물질관리법이 빠졌는데, 아래 [2]~[6]은
+    전부 통과했다. 이름을 하나씩 대조해야 잡힌다.
+    """
+    print("\n[1] 수집 대상 대조 (laws.json ↔ DB)")
+    try:
+        with open(os.path.join(BASE, "laws.json"), encoding="utf-8") as f:
+            wl = json.load(f)
+    except Exception as e:
+        problem(f"laws.json을 읽지 못함: {e}")
+        return
+
+    want = [law["name"] for g in wl.get("groups", []) for law in g["laws"]]
+    want += [a["name"] for a in wl.get("admrul", [])]
+    have = {r[0]: r[1] for r in con.execute("SELECT name, article_count FROM laws")}
+
+    missing = [n for n in want if n not in have]
+    empty = [n for n in want if n in have and not have[n]]
+    for n in missing:
+        problem(f"DB에 없음: {n}  ← 수집 실패. collector.py 다시 실행")
+    for n in empty:
+        problem(f"조문 0개: {n}  ← 본문 파싱 실패. bundle/laws/ 원본 확인")
+    if not missing and not empty:
+        ok(f"수집 대상 {len(want)}건 전부 존재 (조문 0개인 법령 없음)")
+
+    extra = [n for n in have if n not in want and not n.startswith("KOSHA")]
+    if extra:
+        ok(f"laws.json에 없는 항목 {len(extra)}건 — 목록에서 뺀 뒤 재적재하지 않은 것")
+
+
+# ── [2] 구성 요약 ─────────────────────────────────────────────
 def check_composition(con):
-    print("\n[1] 구성 요약")
+    print("\n[2] 구성 요약")
     exp = {"law": (4000, 5000), "admrul": (400, 800), "kosha": (4000, 7000)}
     for kind, n in con.execute(
             "SELECT l.kind, COUNT(*) FROM articles a"
@@ -61,9 +96,9 @@ def check_composition(con):
         ok(f"물질 고유 CAS {subs:,}종")
 
 
-# ── [2] 본문 무결성 ───────────────────────────────────────────
+# ── [3] 본문 무결성 ───────────────────────────────────────────
 def check_integrity(con):
-    print("\n[2] 본문 무결성")
+    print("\n[3] 본문 무결성")
     # SQLite char(0)은 신뢰할 수 없어 파이썬으로 직접 스캔
     n_null = n_ctrl = 0
     for (c,) in con.execute("SELECT content FROM articles"):
@@ -83,12 +118,12 @@ def check_integrity(con):
     short = con.execute("""SELECT COUNT(*) FROM articles a
                            WHERE a.chapter='별표' AND LENGTH(a.content) < 300
                              AND a.title NOT LIKE '%삭제%' AND a.jo_branch=0""").fetchone()[0]
-    print(f"    (정보) 300자 미만 별표 {short}건 — 손실 여부는 [3]에서 원본 대조로 판정")
+    print(f"    (정보) 300자 미만 별표 {short}건 — 손실 여부는 [4]에서 원본 대조로 판정")
 
 
-# ── [3] 별표 손실률 (--full) ─────────────────────────────────
+# ── [4] 별표 손실률 (--full) ─────────────────────────────────
 def check_annex_loss(con, full=False):
-    print("\n[3] 별표 손실률" + ("" if full else " (요약 — 전수는 --full)"))
+    print("\n[4] 별표 손실률" + ("" if full else " (요약 — 전수는 --full)"))
     mpath = os.path.join(BUNDLE, "annex_manifest.json")
     if not os.path.exists(mpath):
         problem("annex_manifest.json 없음")
@@ -129,7 +164,7 @@ def check_annex_loss(con, full=False):
         ok(f"검사한 {checked}건 모두 원본 대비 90% 이상 보존")
 
 
-# ── [4] 물질 스팟체크 ─────────────────────────────────────────
+# ── [5] 물질 스팟체크 ─────────────────────────────────────────
 SPOT_CHEMICALS = [
     ("7664-39-3", "불화수소", True), ("7664-93-9", "황산", True),
     ("7647-01-0", "염산", True), ("7697-37-2", "질산", True),
@@ -145,7 +180,7 @@ SPOT_CHEMICALS = [
 
 
 def check_substances(con):
-    print("\n[4] 물질 스팟체크 (주요 취급물질 20종)")
+    print("\n[5] 물질 스팟체크 (주요 취급물질 20종)")
     miss_any, miss_haz = [], []
     for cas, name, expect_haz in SPOT_CHEMICALS:
         total = con.execute("SELECT COUNT(*) FROM substances WHERE cas=?", (cas,)).fetchone()[0]
@@ -164,7 +199,7 @@ def check_substances(con):
         ok("20종 전부 등재, 유해화학물질 지정 예상과 일치")
 
 
-# ── [5] 검색 스팟체크 ─────────────────────────────────────────
+# ── [6] 검색 스팟체크 ─────────────────────────────────────────
 SPOT_QUERIES = [
     ("유해화학물질 영업허가", "화학물질관리법", 5),
     ("화학사고예방관리계획서", "화학물질관리법", 5),
@@ -177,7 +212,7 @@ SPOT_QUERIES = [
 
 
 def check_search(con):
-    print("\n[5] 검색 스팟체크 (기대 법령이 상위 N위 안에)")
+    print("\n[6] 검색 스팟체크 (기대 법령이 상위 N위 안에)")
     for q, expect_law, topn in SPOT_QUERIES:
         terms = [t for t in q.split() if len(t) >= 3]
         match = " AND ".join(f'"{t}"' for t in terms)
@@ -210,6 +245,7 @@ def main():
     print("=" * 60)
     print(" DB 품질 감사")
     print("=" * 60)
+    check_coverage(con)
     check_composition(con)
     check_integrity(con)
     check_annex_loss(con, full)
