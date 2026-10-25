@@ -66,7 +66,9 @@ cp data/laws.db dist/she-law-db/data/
 
 `.claude/skills/she-law` 스킬과 `CLAUDE.md` 규칙에 따라, Claude가
 `search_law.py`로 DB를 검색하고 근거 조문·원문을 인용해 답합니다.
-근거를 못 찾으면 지어내지 않고 "확인 불가"로 답합니다.
+DB에 없는 내용은 평소처럼 Claude가 답하고, 그 부분은 "클로드 탐색"으로 표시합니다. 답 맨 앞 한 줄
+(`근거: 법령 DB` / `근거: 법령 DB + 클로드 탐색` / `근거: 클로드 탐색`)로 출처를 구분합니다.
+DB는 Claude의 답을 제한하려는 것이 아니라, 원문으로 확인되는 부분을 늘리려는 것입니다.
 
 ### Claude가 알아서 DB를 보게 하기 — MCP 서버 (권장)
 
@@ -114,7 +116,7 @@ python search_law.py laws 화학물질관리법
 | `dist/she-law-db/she_law_mcp.py` | **Claude Code MCP 서버** — 로컬 DB 또는 중앙 API(SHE_LAW_API) |
 | `dist/she-law-db/.mcp.json` | MCP 등록 설정 (폴더를 열면 자동 인식) |
 | `dist/she-law-db/search_law.py` | 검색 CLI (MCP가 없을 때의 대안, 표준 라이브러리만) |
-| `dist/she-law-db/CLAUDE.md` | Claude 답변 규칙 (인용 강제·근거 없으면 거부) |
+| `dist/she-law-db/CLAUDE.md` | Claude 답변 규칙 (DB 근거는 인용, DB 밖은 "클로드 탐색" 표시) |
 | `dist/she-law-db/.claude/skills/` | Claude Code 스킬 정의 |
 
 ## 2026-10에 추가된 것
