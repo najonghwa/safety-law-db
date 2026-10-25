@@ -36,6 +36,8 @@ def run(script, label, i, n):
         print(f" 실패: {script} (종료코드 {r.returncode})")
         print(" 위 오류 메시지를 확인하세요.")
         print(" 인터넷이 끊겼거나 law.go.kr 화면 구조가 바뀐 경우입니다.")
+        print(" 수집기가 '!! … 이전 판 유지'를 냈다면 시간 초과입니다 — 그냥 다시 실행하면")
+        print(" 그 항목만 재시도됩니다. (빠진 채로 다음 단계로 넘어가지 않게 여기서 멈춘 것)")
         print(f"{'#' * 60}")
         sys.exit(r.returncode)
     print(f"  ({time.time() - t0:.0f}초)")

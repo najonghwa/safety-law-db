@@ -71,6 +71,26 @@ def check_coverage(con):
     if extra:
         ok(f"laws.json에 없는 항목 {len(extra)}건 — 목록에서 뺀 뒤 재적재하지 않은 것")
 
+    # 별표의 판(lsi_seq)이 본문의 판과 같은가.
+    # 본문만 새로 받고 별표는 옛 판이면 건수·파일·손실률 어느 검사에도 안 걸린다.
+    # (2026-08-01 산업안전보건법 개정 때 별표 62건이 6월 판으로 남았던 구멍)
+    try:
+        with open(os.path.join(BUNDLE, "manifest.json"), encoding="utf-8") as f:
+            law_seq = {it["name"]: it.get("lsi_seq") for it in json.load(f)["items"]}
+        with open(os.path.join(BUNDLE, "annex_manifest.json"), encoding="utf-8") as f:
+            annexes = json.load(f)["annexes"]
+    except Exception as e:
+        problem(f"manifest를 읽지 못함: {e}")
+        return
+    stale = {}
+    for a in annexes:
+        if a.get("lsi_seq") != law_seq.get(a["law_name"]):
+            stale[a["law_name"]] = stale.get(a["law_name"], 0) + 1
+    for n, c in sorted(stale.items()):
+        problem(f"별표 판 불일치: {n} {c}건 — 본문은 새 판, 별표는 옛 판 (annex_collector.py 재실행)")
+    if not stale:
+        ok(f"별표 {len(annexes)}건 전부 본문과 같은 판")
+
 
 # ── [2] 구성 요약 ─────────────────────────────────────────────
 def check_composition(con):

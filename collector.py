@@ -27,7 +27,7 @@ KST = timezone(timedelta(hours=9))
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SafetyLawCollector/1.0"
 
 
-def http_get(url, timeout=40):
+def http_get(url, timeout=90):
     req = urllib.request.Request(url, headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read().decode("utf-8", errors="replace")
@@ -100,19 +100,43 @@ def main():
     with open(os.path.join(BASE, "laws.json"), encoding="utf-8") as f:
         watchlist = json.load(f)
 
-    items, ok, skipped, failed = [], 0, 0, []
+    items, ok, skipped, failed, kept = [], 0, 0, [], []
+
+    def retry(fn, tries=3, wait=3):
+        """law.go.kr은 큰 본문(1MB 이상)에서 가끔 읽기 시간 초과가 난다. 두 번 더 시도한다."""
+        for i in range(tries):
+            try:
+                return fn()
+            except Exception:
+                if i == tries - 1:
+                    raise
+                print(f"    … 재시도 {i + 1}/{tries - 1}")
+                time.sleep(wait)
+
+    def keep_or_fail(name, p, why):
+        """받기 실패. 이전 판 파일이 있으면 그걸 유지한다 — 목록에서 빼면 DB에서 법령이 통째로 사라진다.
+
+        2026-10-25 실행에서 소방기본법 시행령·소방시설법 시행령이 시간 초과로 목록에서 빠져
+        manifest가 56건이 됐다. 개정도 없었는데 DB에서 사라질 뻔했다. 유지한 건 마지막에
+        모아서 알리고 종료코드 1을 낸다 — 자동화가 멈추고, 다시 실행하면 그것만 재시도된다.
+        """
+        if p and os.path.exists(os.path.join(LAWS_DIR, safe_filename(name))):
+            print(f"    !! {why} — 이전 판 유지(개정분 미반영)")
+            items.append(p)
+            kept.append(name)
+        else:
+            print(f"    !! {why} — 누락됨")
+            failed.append(name)
     for grp in watchlist["groups"]:
         for law in grp["laws"]:
             name = law["name"]
             print(f"[{grp['group']}] {name}")
             lsi_seq, ef_yd = resolve_law(name)
-            if not lsi_seq:
-                print("    ! 법령을 찾지 못함 (법령명 확인 필요)")
-                failed.append(name)
-                continue
-
             fname = safe_filename(name)
             p = prev.get(name)
+            if not lsi_seq:
+                keep_or_fail(name, p, "법령을 찾지 못함 (법령명 확인 필요)")
+                continue
             if p and p.get("lsi_seq") == lsi_seq and p.get("ef_yd") == ef_yd \
                     and os.path.exists(os.path.join(LAWS_DIR, fname)):
                 print(f"    = 변경 없음 (lsiSeq {lsi_seq}, 시행 {ef_yd}) — 건너뜀")
@@ -121,10 +145,9 @@ def main():
                 continue
 
             try:
-                body = fetch_body(lsi_seq, ef_yd)
+                body = retry(lambda: fetch_body(lsi_seq, ef_yd))
             except Exception as e:
-                print(f"    ! 본문 다운로드 실패: {e}")
-                failed.append(name)
+                keep_or_fail(name, p, f"본문 다운로드 실패: {e}")
                 continue
             if "lawcon" not in body:
                 print("    ! 본문 형식이 예상과 다름 — 저장은 하되 확인 필요")
@@ -148,13 +171,11 @@ def main():
         name = adm["name"]
         print(f"[{adm['group']}·고시] {name}")
         adm_seq = resolve_admrul(name)
-        if not adm_seq:
-            print("    ! 행정규칙을 찾지 못함 (명칭 확인 필요)")
-            failed.append(name)
-            continue
-
         fname = safe_filename(name)
         p = prev.get(name)
+        if not adm_seq:
+            keep_or_fail(name, p, "행정규칙을 찾지 못함 (명칭 확인 필요)")
+            continue
         if p and p.get("lsi_seq") == adm_seq \
                 and os.path.exists(os.path.join(LAWS_DIR, fname)):
             print(f"    = 변경 없음 (admRulSeq {adm_seq}) — 건너뜀")
@@ -163,10 +184,9 @@ def main():
             continue
 
         try:
-            body = fetch_admrul_body(adm_seq)
+            body = retry(lambda: fetch_admrul_body(adm_seq))
         except Exception as e:
-            print(f"    ! 본문 다운로드 실패: {e}")
-            failed.append(name)
+            keep_or_fail(name, p, f"본문 다운로드 실패: {e}")
             continue
 
         path = os.path.join(LAWS_DIR, fname)
@@ -193,9 +213,15 @@ def main():
         }, f, ensure_ascii=False, indent=2)
 
     print(f"\n완료: 신규/갱신 {ok}건, 변경없음 {skipped}건, 실패 {len(failed)}건")
+    if kept:
+        print(f"이전 판 유지 {len(kept)}건(개정분 미반영일 수 있음):", ", ".join(kept))
     if failed:
-        print("실패 목록:", ", ".join(failed))
+        print("실패 목록(DB에서 빠짐):", ", ".join(failed))
     print(f"번들 위치: {BUNDLE}")
+    if failed or kept:
+        # manifest는 이미 완전한 상태로 써 두었다. 종료코드 1로 자동화(update_db.py)를 멈추고,
+        # 다시 실행하면 실패·유지분만 재시도된다.
+        sys.exit(1)
 
 
 if __name__ == "__main__":
