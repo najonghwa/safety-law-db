@@ -78,9 +78,9 @@ DB는 Claude의 답을 제한하려는 것이 아니라, 원문으로 확인되�
 표준 라이브러리만 쓰므로 설치할 게 없습니다. 목적은 검색기가 아니라 **클로드가 이 DB를 본 다음
 답하게 하는 것**이라 이 경로가 기본입니다.
 
-여러 사람이 쓸 때는 DB를 복사하지 않아도 됩니다 — 한 곳에서 대시보드(`app.py`, 8777)를 띄우고,
-각자의 `.mcp.json`에 `"env": {"SHE_LAW_API": "http://서버:8777"}`를 넣으면 중앙 DB를 씁니다.
-답변은 각자의 Claude Code가 만들므로 비용도 각자에게 갑니다.
+여러 사람이 쓸 때는 DB를 복사하지 않아도 됩니다 — 한 명이 `python she_law_mcp.py --http 0.0.0.0:8780`으로
+서버를 켜고, 나머지는 `claude mcp add --transport http -s user she-law http://서버IP:8780/mcp` 한 줄로 붙습니다.
+서버는 조문 검색만 하고, 답변은 각자의 Claude Code가 만들므로 토큰도 각자의 계정에서 나갑니다.
 
 ```bash
 cd dist/she-law-db

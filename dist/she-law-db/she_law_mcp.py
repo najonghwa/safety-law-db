@@ -5,16 +5,14 @@
 보이고, 법규·인허가·물질 질문이 오면 먼저 gather_evidence 를 불러 근거 조문 묶음을 받은 뒤
 그걸 인용하며 자세히 답한다. 답은 질문한 사람의 Claude Code(= 그 사람의 비용)에서 만들어진다.
 
-두 가지 연결 방식 — 설치하는 쪽이 고른다.
-  로컬 DB  : 이 파일 옆 data/laws.db 를 직접 읽는다. (사내망 반입 패키지 기본)
-  중앙 서버: 환경변수 SHE_LAW_API=http://서버:8777 이 있으면 대시보드(app.py)의 검색 API를 부른다.
-            DB 복사가 필요 없고 갱신은 중앙 한 곳에서 한다.
+쓰는 방식 세 가지.
+  혼자 쓰기  : 이 폴더를 Claude Code로 열면 .mcp.json 이 이 파일을 도구로 띄운다(로컬 DB).
+  여러 명    : 한 명이 서버로 켠다 — python she_law_mcp.py --http 0.0.0.0:8780
+              나머지는 각자 명령 한 줄 — claude mcp add --transport http -s user she-law http://서버IP:8780/mcp
+              각자는 파일·DB가 필요 없고, 답을 쓰는 모델은 각자의 Claude Code(토큰도 각자).
+  대시보드 API: 환경변수 SHE_LAW_API=http://서버:8777 이면 대시보드(app.py)의 검색 API를 부른다.
 
-Claude Code 설정(.mcp.json, 이 폴더에 두면 폴더를 열 때 자동 인식):
-  {"mcpServers": {"she-law": {"command": "python", "args": ["she_law_mcp.py"]}}}
-  중앙 서버 방식이면 "env": {"SHE_LAW_API": "http://10.0.0.5:8777"} 를 추가.
-
-프로토콜: MCP stdio (줄 단위 JSON-RPC 2.0). stdout 에는 JSON 외에 아무것도 쓰지 않는다.
+프로토콜: MCP stdio(줄 단위 JSON-RPC 2.0, stdout에는 JSON만) 또는 Streamable HTTP(--http, JSON 응답).
 """
 import sys, os, re, json, sqlite3, datetime, urllib.request, urllib.parse
 
@@ -43,7 +41,9 @@ _ENDING = re.compile(r"(하려면|하려는|하려고|해야|하는|한|할|합�
                      r"되는|된|될|시|시에|중인|중|나요|가요|까요|습니까|입니까|인가요|인지|한지|할지)$")
 TIMING_Q = re.compile("경과조치|시행일|언제부터|개정 전|개정전|유예|종전|계속 유효|소급|적용례")
 FORM_Q = re.compile("서식|신청서|양식|별지|제출서류|첨부서류|작성해야")
-TIMING_WORDS = {"개정", "전", "계속", "유효", "유효한", "종전", "이전", "시행", "언제", "적용", "유예", "소급"}
+# 시점 질문에서 '경과조치'와 함께 찾을 핵심어를 고를 때 빼는 말 — 시점·상태를 나타낼 뿐 조문을 가리키지 않는다
+TIMING_WORDS = {"개정", "전", "계속", "유효", "유효한", "종전", "이전", "시행", "언제", "적용", "유예", "소급",
+                "받은", "받았던", "기존", "이미", "예전", "지금", "아직", "되나", "되는지", "부터", "언제부터"}
 CAS_RE = re.compile(r"\b(\d{2,7}-\d{2}-\d)\b")
 
 _syn = None
@@ -262,7 +262,12 @@ def rank(r, q):
         return 0.5 if FORM_Q.search(q) else 2.5
     if label.startswith("별표"):
         return 2
-    base = (0.5 if TIMING_Q.search(q) else 1.5) if label.startswith("부칙") else (0 if tier == "법률" else 1)
+    if label.startswith("부칙"):
+        # 시점 질문("개정 전 허가는", "언제부터")의 직접 근거는 부칙이라 본문보다 앞에, 아니면 본문 뒤에.
+        # 같은 부칙이라도 법률 > 시행령·규칙 > 고시 — 고시는 해마다 비슷한 경과조치가 되풀이된다.
+        base = (-0.5 if TIMING_Q.search(q) else 1.5) + {"법률": 0, "시행령": 0.1, "시행규칙": 0.1}.get(tier, 0.2)
+    else:
+        base = 0 if tier == "법률" else 1
     return base + (0.25 if "(시행예정" in name else 0)
 
 
@@ -296,7 +301,19 @@ def gather(question, max_articles=10):
         for i, r in enumerate(b):
             score[r["article_id"]] = score.get(r["article_id"], 0) + 1.0 / (60 + i + 1)
     ordered = sorted((uniq[a] for a in score), key=lambda r: (-score[r["article_id"]]))
-    ordered = sorted(ordered, key=lambda r: rank(r, question))[:max_articles]
+    # 부칙은 법령마다 2개까지 — 고시가 개정될 때마다 비슷한 경과조치가 쌓여 있어, 막지 않으면
+    # 한 고시의 부칙이 열 칸을 다 채우고 정작 법률 부칙이 밀려난다(실제로 있던 일).
+    picked, per_law = [], {}
+    for r in sorted(ordered, key=lambda r: rank(r, question)):
+        if r.get("jo_label", "").startswith("부칙"):
+            key = r.get("law_name", "")
+            if per_law.get(key, 0) >= 2:
+                continue
+            per_law[key] = per_law.get(key, 0) + 1
+        picked.append(r)
+        if len(picked) >= max_articles:
+            break
+    ordered = picked
 
     # 물질 등재 현황 (CAS 또는 물질명)
     subs = []
@@ -433,6 +450,38 @@ def send(msg):
     sys.stdout.buffer.flush()
 
 
+def handle(req):
+    """JSON-RPC 메시지 하나 → 응답(dict). 알림(id 없음)이면 None. stdio·HTTP 둘 다 이걸 쓴다."""
+    rid, method, params = req.get("id"), req.get("method", ""), req.get("params") or {}
+    try:
+        if method == "initialize":
+            return {"jsonrpc": "2.0", "id": rid, "result": {
+                "protocolVersion": params.get("protocolVersion") or PROTOCOL,
+                "capabilities": {"tools": {"listChanged": False}},
+                "serverInfo": {"name": "she-law", "version": "1.1"},
+                "instructions": INSTRUCTIONS}}
+        if method.startswith("notifications/"):
+            return None
+        if method == "ping":
+            return {"jsonrpc": "2.0", "id": rid, "result": {}}
+        if method == "tools/list":
+            return {"jsonrpc": "2.0", "id": rid, "result": {"tools": TOOLS}}
+        if method == "tools/call":
+            try:
+                text = call_tool(params.get("name", ""), params.get("arguments") or {})
+                return {"jsonrpc": "2.0", "id": rid, "result": {"content": [{"type": "text", "text": text}], "isError": False}}
+            except Exception as e:
+                log("tool error:", repr(e))
+                return {"jsonrpc": "2.0", "id": rid, "result": {"content": [{"type": "text", "text": f"도구 오류: {e}"}], "isError": True}}
+        if rid is not None:
+            return {"jsonrpc": "2.0", "id": rid, "error": {"code": -32601, "message": f"method not found: {method}"}}
+    except Exception as e:
+        log("fatal:", repr(e))
+        if rid is not None:
+            return {"jsonrpc": "2.0", "id": rid, "error": {"code": -32603, "message": str(e)}}
+    return None
+
+
 def main():
     for raw in sys.stdin.buffer:
         line = raw.decode("utf-8", "replace").strip()
@@ -442,33 +491,71 @@ def main():
             req = json.loads(line)
         except Exception:
             continue
-        rid, method, params = req.get("id"), req.get("method", ""), req.get("params") or {}
-        try:
-            if method == "initialize":
-                send({"jsonrpc": "2.0", "id": rid, "result": {
-                    "protocolVersion": params.get("protocolVersion") or PROTOCOL,
-                    "capabilities": {"tools": {"listChanged": False}},
-                    "serverInfo": {"name": "she-law", "version": "1.0"},
-                    "instructions": INSTRUCTIONS}})
-            elif method == "notifications/initialized" or method.startswith("notifications/"):
-                pass
-            elif method == "ping":
-                send({"jsonrpc": "2.0", "id": rid, "result": {}})
-            elif method == "tools/list":
-                send({"jsonrpc": "2.0", "id": rid, "result": {"tools": TOOLS}})
-            elif method == "tools/call":
-                try:
-                    text = call_tool(params.get("name", ""), params.get("arguments") or {})
-                    send({"jsonrpc": "2.0", "id": rid, "result": {"content": [{"type": "text", "text": text}], "isError": False}})
-                except Exception as e:
-                    log("tool error:", repr(e))
-                    send({"jsonrpc": "2.0", "id": rid, "result": {"content": [{"type": "text", "text": f"도구 오류: {e}"}], "isError": True}})
-            elif rid is not None:
-                send({"jsonrpc": "2.0", "id": rid, "error": {"code": -32601, "message": f"method not found: {method}"}})
-        except Exception as e:
-            log("fatal in loop:", repr(e))
-            if rid is not None:
-                send({"jsonrpc": "2.0", "id": rid, "error": {"code": -32603, "message": str(e)}})
+        resp = handle(req)
+        if resp is not None:
+            send(resp)
+
+
+def serve_http(bind):
+    """여러 명이 쓰는 서버 모드 — MCP를 HTTP로 연다(Streamable HTTP, JSON 응답).
+
+    서버 PC에서:   python she_law_mcp.py --http 0.0.0.0:8780
+    각자 PC에서:   claude mcp add --transport http -s user she-law http://서버IP:8780/mcp
+    각자는 파일도 DB도 필요 없다. 도구 호출(조문 검색)만 이 서버로 오고, 질문을 읽고 답을 쓰는
+    모델은 각자의 Claude Code라 토큰도 각자의 계정에서 나간다. 이 서버는 검색만 하고 AI를 부르지 않는다.
+    """
+    import uuid
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    host, _, port = bind.rpartition(":")
+    host, port = host or "0.0.0.0", int(port or 8780)
+
+    class H(BaseHTTPRequestHandler):
+        def _send(self, code, body=None, extra=None):
+            data = b"" if body is None else json.dumps(body, ensure_ascii=False).encode("utf-8")
+            self.send_response(code)
+            if body is not None:
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+            for k, v in (extra or {}).items():
+                self.send_header(k, v)
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            if data:
+                self.wfile.write(data)
+
+        def do_POST(self):
+            if self.path.rstrip("/") != "/mcp":
+                return self._send(404, {"error": "endpoint is /mcp"})
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+                msg = json.loads(self.rfile.read(n).decode("utf-8"))
+            except Exception:
+                return self._send(400, {"jsonrpc": "2.0", "id": None,
+                                        "error": {"code": -32700, "message": "parse error"}})
+            msgs = msg if isinstance(msg, list) else [msg]
+            out = [r for r in (handle(m) for m in msgs if isinstance(m, dict)) if r is not None]
+            extra = {}
+            if any(m.get("method") == "initialize" for m in msgs if isinstance(m, dict)):
+                extra["Mcp-Session-Id"] = uuid.uuid4().hex     # 세션은 기록만 하고 검사하지 않는다(읽기 전용)
+            if not out:
+                return self._send(202, None, extra)            # 알림만 온 경우
+            self._send(200, out if isinstance(msg, list) else out[0], extra)
+
+        def do_GET(self):
+            if self.path.rstrip("/") in ("", "/health"):
+                stamp, _ = db_date()
+                return self._send(200, {"ok": True, "server": "she-law", "db_date": stamp, "mcp": "/mcp"})
+            self._send(405, None, {"Allow": "POST"})           # 서버→클라이언트 SSE 스트림은 쓰지 않는다
+
+        def do_DELETE(self):
+            self._send(200 if self.path.rstrip("/") == "/mcp" else 404, None)
+
+        def log_message(self, fmt, *a):
+            log("[http]", self.address_string(), fmt % a)
+
+    stamp, _ = db_date()
+    log(f"she-law MCP 서버 — http://{host}:{port}/mcp (DB 기준일 {stamp})")
+    log(f"각자 PC에서:  claude mcp add --transport http -s user she-law http://<이 PC의 IP>:{port}/mcp")
+    ThreadingHTTPServer((host, port), H).serve_forever()
 
 
 if __name__ == "__main__":
@@ -476,5 +563,8 @@ if __name__ == "__main__":
         q = sys.argv[-1] if len(sys.argv) > 2 else "유해화학물질 영업허가를 받으려면 무엇이 필요한가?"
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
         print(gather(q))
+    elif "--http" in sys.argv:      # python she_law_mcp.py --http 0.0.0.0:8780
+        i = sys.argv.index("--http")
+        serve_http(sys.argv[i + 1] if i + 1 < len(sys.argv) and not sys.argv[i + 1].startswith("-") else "0.0.0.0:8780")
     else:
         main()
