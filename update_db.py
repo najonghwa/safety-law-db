@@ -20,7 +20,8 @@ STEPS = [
     ("collector.py", "법령 본문 수집 (바뀐 것만 받습니다)"),
     ("annex_collector.py", "별표 수집"),
     ("substance_collector.py", "화학물질 규제 목록 수집"),
-    ("kosha_collector.py", "KOSHA 지침 목록 수집"),
+    ("kosha_collector.py", "KOSHA 지침 목록·PDF 수집"),
+    ("ocr_scans.py", "스캔본·그림 별표 OCR (winocr 없으면 건너뜀)"),
     ("importer.py", "DB 재생성"),
     ("verify_db.py", "DB 감사"),
 ]

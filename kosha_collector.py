@@ -65,6 +65,7 @@ def fetch_pdfs():
     os.makedirs(PDF_DIR, exist_ok=True)
     base = "https://apis.data.go.kr/B552468/koshaguide/getKoshaGuide"
     page, saved, failed, total = 1, 0, 0, None
+    api_items = []   # 조회 API에만 있는 신규 지침(2024~)을 importer가 목록에 보태도록 남긴다
     while True:
         url = (f"{base}?serviceKey={urllib.parse.quote(key)}"
                f"&pageNo={page}&numOfRows=100&returnType=json&callApiId=1050")
@@ -81,6 +82,10 @@ def fetch_pdfs():
         for it in items:
             no = (it.get("techGdlnNo") or "").strip()
             link = it.get("fileDownloadUrl")
+            if no:
+                api_items.append({"no": no, "title": (it.get("techGdlnNm") or "").strip(),
+                                  "date": (it.get("techGdlnOfancYmd") or "").strip(),
+                                  "has_file": bool(link)})
             if not no or not link:
                 continue
             dst = os.path.join(PDF_DIR, f"{no}.pdf")
@@ -101,6 +106,9 @@ def fetch_pdfs():
                     print(f"  ! {no} 실패: {e}")
         print(f"페이지 {page} 완료 (전체 {total}건)")
         page += 1
+    with open(os.path.join(BUNDLE, "kosha_api.json"), "w", encoding="utf-8") as f:
+        json.dump(api_items, f, ensure_ascii=False, indent=0)
+    print(f"조회 API 목록 {len(api_items)}건 → bundle/kosha_api.json")
     print(f"PDF 신규 {saved}건, 실패 {failed}건 → {PDF_DIR}")
 
 

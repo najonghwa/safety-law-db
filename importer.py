@@ -23,6 +23,7 @@ ANCHOR_RE = re.compile(r'<a name="J(\d+)(?:-(\d+))?:(\d+)"')
 GTIT_RE = re.compile(r'<p class="gtit"[^>]*>(.*?)</p>', re.S)
 LABEL_RE = re.compile(r'<label[^>]*>\s*(제[^<]+?)\s*</label>')
 P_RE = re.compile(r'<p[^>]*>(.*?)</p>', re.S)
+BABL_RE = re.compile(r'<[^>]*class="babl"[^>]*>(.*?)</', re.S)   # 시행예정 표시 [시행일: …]
 TAG_RE = re.compile(r'<[^>]+>')
 
 
@@ -77,6 +78,12 @@ def parse_law_html(raw):
         tm = re.match(r'(제\d+조(?:의\d+)?)\s*(?:\((.*?)\))?', jo_label)
         jo_short = tm.group(1) if tm else jo_label
         title = (tm.group(2) or "") if tm else ""
+        if 'class="babl"' in section:
+            # 시행예정 조문 — 현행 본문에 섞여 있어, 표시하지 않으면 지금 적용되는 규정처럼 보인다
+            bm = BABL_RE.search(section)
+            tag = strip_tags(bm.group(1)) if bm and strip_tags(bm.group(1)) else "시행예정"
+            title = ("[" + tag + "] " + title).strip()
+            jo_label = jo_label + " [" + tag + "]"
 
         lines = []
         for pm in P_RE.finditer(section):
@@ -93,6 +100,65 @@ def parse_law_html(raw):
             "content": content,
         })
     return meta, articles
+
+
+# ── 부칙 ──────────────────────────────────────────────────────
+# 시행일·경과조치·적용례는 본문이 아니라 부칙(arDivArea)에 있다. "이 법 시행 전에 허가받은
+# 자는 ○년까지 …"가 곧 준비 기한인데, 예전 파서는 arDivArea 앞에서 끊어 한 줄도 담지 않았다.
+# 법령·고시 모두 같은 구조: 부칙마다 <a name="J…"> 앵커 → pty3 헤더(공포번호·날짜) →
+# pty3_dep1(조 시작, <span class="bl">제N조(제목)</span>) / pty3_dep2(이어지는 항).
+ADDENDUM_ANCHOR_RE = re.compile(r'<a name="J(\d+)"')
+SFON_RE = re.compile(r'<span class="sfon">\s*(.*?)\s*</span>', re.S)
+PTY3_RE = re.compile(r'<p class="pty3_dep(\d)"[^>]*>(.*?)</p>', re.S)
+BL_RE = re.compile(r'<span class="bl">\s*(제\d+조(?:의\d+)?)\s*(?:\((.*?)\))?\s*</span>\s*(.*)', re.S)
+ADDENDUM_BASE = 100000   # 본문(최대 수천)·별표(9000대)와 겹치지 않는 번호대
+SKIP_RE = re.compile("(①부터 .{0,30}까지 )?생략[.]?")
+
+
+def parse_addenda(raw):
+    """부칙 영역 → 조문 목록(parse_law_html과 같은 키). 오래된 부칙도 넣는다 —
+    경과조치는 수년 뒤까지 효력이 있고, 어느 것이 살아 있는지는 읽는 쪽이 판단한다."""
+    start = raw.find('id="arDivArea"')
+    if start < 0:
+        return []
+    area = raw[start:]
+    heads = [m.start() for m in ADDENDUM_ANCHOR_RE.finditer(area)]
+    out = []
+    for bi, bpos in enumerate(heads):
+        blk = area[bpos:(heads[bi + 1] if bi + 1 < len(heads) else len(area))]
+        sf = [strip_tags(x) for x in SFON_RE.findall(blk)]
+        head = sf[0] if sf else ""                     # <법률 제11862호, 2013. 6. 4.>
+        other = sf[1] if len(sf) > 1 else ""           # (타법개정이면 그 법률명)
+        chapter = ("부칙 " + head + (" " + other if other else "")).strip()
+        cur, arts = None, []
+        for dep, inner in PTY3_RE.findall(blk):
+            m = BL_RE.match(inner.strip())
+            if dep == "1" and m:
+                if cur:
+                    arts.append(cur)
+                cur = {"jo_short": m.group(1), "title": m.group(2) or "",
+                       "lines": [t for t in [strip_tags(m.group(3))] if t]}
+            else:
+                t = strip_tags(inner)
+                if not t:
+                    continue
+                if cur is None:                        # 조 번호 없는 한 줄짜리 부칙
+                    cur = {"jo_short": "", "title": "", "lines": []}
+                cur["lines"].append(t)
+        if cur:
+            arts.append(cur)
+        for n, a in enumerate(arts):
+            jm = re.match(r"제(\d+)조(?:의(\d+))?", a["jo_short"])
+            jo_no = ADDENDUM_BASE + bi * 100 + (int(jm.group(1)) if jm else 0)
+            label = ("부칙 " + a["jo_short"] + ("(" + a["title"] + ")" if a["title"] else "")).strip()                 if a["jo_short"] else "부칙"
+            out.append({
+                "jo_no": jo_no, "jo_branch": int(jm.group(2)) if jm and jm.group(2) else 0,
+                "jo_label": (label + " " + head).strip(),
+                "jo_short": "부칙", "title": a["title"], "chapter": chapter,
+                "content": chr(10).join(a["lines"]).strip(),
+            })
+    # "생략"뿐인 조(타법개정 부칙의 "①부터 <382>까지 생략" 등)는 검색에 걸려도 쓸 내용이 없다
+    return [a for a in out if a["content"] and not SKIP_RE.fullmatch(a["content"])]
 
 
 def main():
@@ -146,6 +212,7 @@ def main():
         with open(path, encoding="utf-8") as f:
             raw = f.read()
         meta, articles = parse_law_html(raw)
+        articles += parse_addenda(raw)   # 부칙(시행일·경과조치·적용례) — 준비 기한이 여기 있다
         cur.execute(
             "INSERT INTO laws(name,grp,tier,kind,ministry,lsi_seq,ef_yd,enforce,"
             "proclaim,source_url,fetched_at,article_count) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -232,7 +299,22 @@ def clean_text(t):
 
 
 def extract_annex_text(path):
-    """HWP/HWPX/PDF → 텍스트. 라이브러리 없으면 빈 문자열."""
+    """HWP/HWPX/PDF → 텍스트. 라이브러리 없으면 빈 문자열.
+
+    원본이 그림뿐이라 글자가 거의 안 나오면 ocr_scans.py가 만든 사이드카(.ocr.txt)를 쓴다.
+    (소량 취급시설 판단방법 흐름도 같은 것 — 2026-10 전수 조사에서 그림 별표 2건)
+    """
+    text = _extract_annex_text(path)
+    side = path + ".ocr.txt"
+    if len(text) < 300 and os.path.exists(side):
+        with open(side, encoding="utf-8", errors="replace") as f:
+            ocr = clean_text(f.read())
+        if len(ocr) > len(text):
+            return "(그림 별표 — OCR로 읽은 텍스트. 수치·기호는 원본 그림을 확인할 것)" + chr(10) + ocr
+    return text
+
+
+def _extract_annex_text(path):
     ext = os.path.splitext(path)[1].lower()
     try:
         if ext == ".txt":
@@ -281,7 +363,7 @@ def import_annexes(cur):
                 "INSERT INTO articles(law_id,jo_no,jo_branch,jo_label,jo_short,"
                 "title,chapter,content) VALUES(?,?,?,?,?,?,?,?)",
                 (law_id, 9000 + n_annex, ci, label, a["label"],
-                 a["title"], "별표", content))
+                 a["title"], "서식" if a["label"].startswith(("서식", "별지")) else "별표", content))
             cur.execute(
                 "INSERT INTO articles_fts(rowid,jo_label,title,content) VALUES(?,?,?,?)",
                 (cur.lastrowid, label, a["title"], content))
@@ -370,6 +452,34 @@ def import_kosha(cur):
     with open(path, encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
 
+    # 공공데이터포털의 목록 CSV는 2023-11에서 멈춰 있다. 조회 API(kosha_api.json)에만 있는
+    # 2024~2026년 신규 지침을 보태지 않으면 가장 최신 지침이 DB에서 빠진다(2026-10 확인: 237건).
+    api_path = os.path.join(BUNDLE, "kosha_api.json")
+    if os.path.exists(api_path):
+        have = {r["지침번호"] for r in rows}
+        desc_by_code = {r["분류기호"]: r["분류내용"] for r in rows}
+        seq = max((int(r["연번"]) for r in rows if str(r.get("연번", "")).isdigit()), default=0)
+        with open(api_path, encoding="utf-8") as f:
+            added = 0
+            for it in json.load(f):
+                no = it.get("no", "")
+                if not no or no in have:
+                    continue
+                parts = no.split("-")
+                if len(parts) >= 3 and parts[1] == "G":        # A-G-3-2025: 기술지원규정
+                    code, desc = parts[0] + "-G", "기술지원규정"
+                else:
+                    code = parts[0]
+                    desc = desc_by_code.get(code, "기타")
+                seq += 1
+                rows.append({"연번": str(seq), "위원회": "", "등록일": it.get("date", ""),
+                             "분류기호": code, "분류내용": desc, "공표순": "",
+                             "년도": parts[-1], "지침번호": no, "명칭": it.get("title", "")})
+                have.add(no)
+                added += 1
+        if added:
+            print(f"KOSHA 조회 API에서 목록 CSV에 없는 지침 {added}건 보탬")
+
     groups = {}  # 분류기호 → [row]
     for r in rows:
         groups.setdefault((r["분류기호"], r["분류내용"]), []).append(r)
@@ -391,6 +501,11 @@ def import_kosha(cur):
             fulltext = ""
             if has_pdf_lib and os.path.exists(pdf):
                 fulltext = clean_text(pdf_text(pdf))[:40000]
+            if len(fulltext.strip()) < 200:      # 스캔본 — ocr_scans.py 사이드카가 있으면 사용
+                side = os.path.join(BUNDLE, "kosha_ocr", f"{no}.txt")
+                if os.path.exists(side):
+                    with open(side, encoding="utf-8", errors="replace") as sf:
+                        fulltext = ("(스캔본 — OCR로 읽은 텍스트) " + clean_text(sf.read()))[:40000]
             # PDF 본문은 ~1800자 청크로 분할 (검색·RAG 품질), 목차행만 있으면 1건
             chunks = [head] if not fulltext else \
                 [head + "\n" + fulltext[i:i + 1800]

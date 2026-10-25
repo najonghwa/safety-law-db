@@ -24,7 +24,7 @@ KST = timezone(timedelta(hours=9))
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SafetyLawCollector/1.0"
 
 OPTION_RE = re.compile(
-    r'<option value="(\d+),(\d+),(\d+),\d+,\d*">\s*\[(별표[^\]]*)\]\s*([^<]*)</option>')
+    r'<option value="(\d+),(\d+),(\d+),\d+,\d*">\s*\[((?:별표|서식)[^\]]*)\]\s*([^<]*)</option>')
 ADMRUL_FL_RE = re.compile(r'flDownload\.do\?flSeq=(\d+)&amp;flNm=([^"&\']+)')
 
 
@@ -126,13 +126,13 @@ def main():
             found = 0
             for fl_seq, fl_nm in ADMRUL_FL_RE.findall(html):
                 title = urllib.parse.unquote_plus(fl_nm)
-                if not title.startswith("[별표"):
-                    continue  # 서식·별지 제외
+                if not (title.startswith("[별표") or title.startswith("[별지")):
+                    continue  # 그 밖(첨부 파일 등) 제외 — 별표·별지(서식) 모두 받는다
                 norm = re.sub(r"\s+", " ", title)
                 if norm in seen_names:  # 같은 별표의 중복 링크(hwp/pdf 쌍) 1개만
                     continue
                 seen_names.add(norm)
-                m = re.match(r"\[(별표[^\]]*)\]\s*(.*)", norm)
+                m = re.match(r"\[((?:별표|별지)[^\]]*)\]\s*(.*)", norm)
                 label = m.group(1).replace(" ", "") if m else "별표"
                 url = f"https://www.law.go.kr/LSW/flDownload.do?flSeq={fl_seq}"
                 save_one(f"adm:{name}:{label}", name, label,

@@ -100,7 +100,7 @@ def _search_one(con, q, tier, limit):
                " FROM articles_fts f JOIN articles a ON a.article_id=f.rowid"
                " JOIN laws l ON l.law_id=a.law_id"
                " WHERE articles_fts MATCH ?" + short_sql + tier_sql +
-               " ORDER BY bm25(articles_fts, 8.0, 4.0, 1.0)"
+               " ORDER BY bm25(articles_fts, 8.0, 4.0, 1.0) + (CASE WHEN a.jo_short='부칙' THEN 4.0 WHEN a.chapter='서식' THEN 6.0 ELSE 0.0 END)"
                "  + (CASE WHEN l.kind='kosha' THEN 2.5 ELSE 0 END) LIMIT ?")
         params = [match] + [f"%{t}%" for t in short] + ([tier] if tier else []) + [limit]
         try:

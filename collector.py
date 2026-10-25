@@ -41,8 +41,15 @@ def _name_variants(name):
     return [n for n in out if not (n in seen or seen.add(n))]
 
 
-def resolve_law(name):
-    """법령명 → (lsiSeq, efYd). 친화 URL의 iframe src에서 추출."""
+def resolve_law_all(name):
+    """법령명 → (현행 lsiSeq, efYd, [(lsiSeq, efYd), …] 시행예정 판).
+
+    현행은 친화 URL의 iframe src에서 뽑는다. 시행예정 판은 같은 페이지에 적힌 (lsiSeq, efYd)
+    쌍 가운데 시행일이 오늘 이후인 것으로 잡는다. 페이지에 안 적혀 있으면(연혁 목록은 JS로
+    따로 불러온다) 여기서는 못 본다 — 이 한계는 README에 적어 두었다. 조문 단위 시행예정
+    (현행 본문 안의 class="babl")은 importer가 표시한다.
+    """
+    today = datetime.now(KST).strftime("%Y%m%d")
     for candidate in _name_variants(name):
         url = "https://www.law.go.kr/" + urllib.parse.quote("법령/" + candidate)
         try:
@@ -52,8 +59,17 @@ def resolve_law(name):
             continue
         m = re.search(r"lsInfoP\.do\?lsiSeq=(\d+)[^\"']*?efYd=(\d*)", html)
         if m:
-            return m.group(1), m.group(2)
-    return None, None
+            pairs = set(re.findall(r"lsiSeq=(\d+)[^\"'<>]{0,80}?efYd=(\d{8})", html))
+            futures = sorted({(s, e) for s, e in pairs if e > today and s != m.group(1)},
+                             key=lambda x: x[1])
+            return m.group(1), m.group(2), futures
+    return None, None, []
+
+
+def resolve_law(name):
+    """법령명 → (lsiSeq, efYd) 현행만."""
+    cur_seq, cur_ef, _ = resolve_law_all(name)
+    return cur_seq, cur_ef
 
 
 def resolve_admrul(name):
@@ -131,41 +147,48 @@ def main():
         for law in grp["laws"]:
             name = law["name"]
             print(f"[{grp['group']}] {name}")
-            lsi_seq, ef_yd = resolve_law(name)
-            fname = safe_filename(name)
-            p = prev.get(name)
+            lsi_seq, ef_yd, futures = resolve_law_all(name)
             if not lsi_seq:
-                keep_or_fail(name, p, "법령을 찾지 못함 (법령명 확인 필요)")
+                keep_or_fail(name, prev.get(name), "법령을 찾지 못함 (법령명 확인 필요)")
                 continue
-            if p and p.get("lsi_seq") == lsi_seq and p.get("ef_yd") == ef_yd \
-                    and os.path.exists(os.path.join(LAWS_DIR, fname)):
-                print(f"    = 변경 없음 (lsiSeq {lsi_seq}, 시행 {ef_yd}) — 건너뜀")
-                items.append(p)
-                skipped += 1
-                continue
+            # 현행 판 + (있으면) 시행예정 판. 시행예정 판은 이름에 날짜를 붙여 별도 항목으로 담는다 —
+            # 검색 결과에서 "아직 시행 전"임이 이름만 봐도 드러나야 한다. 시행일이 지나면 그 판이
+            # 현행이 되고 "(시행예정 …)" 항목은 다음 실행에서 자연히 빠진다.
+            targets = [(name, lsi_seq, ef_yd, "law")] + [
+                (f"{name} (시행예정 {e[:4]}-{e[4:6]}-{e[6:]})", s, e, "future") for s, e in futures]
+            for tname, tseq, tef, tkind in targets:
+                fname = safe_filename(tname)
+                p = prev.get(tname)
+                if p and p.get("lsi_seq") == tseq and p.get("ef_yd") == tef \
+                        and os.path.exists(os.path.join(LAWS_DIR, fname)):
+                    print(f"    = 변경 없음 (lsiSeq {tseq}, 시행 {tef}) — 건너뜀")
+                    items.append(p)
+                    skipped += 1
+                    continue
 
-            try:
-                body = retry(lambda: fetch_body(lsi_seq, ef_yd))
-            except Exception as e:
-                keep_or_fail(name, p, f"본문 다운로드 실패: {e}")
-                continue
-            if "lawcon" not in body:
-                print("    ! 본문 형식이 예상과 다름 — 저장은 하되 확인 필요")
+                try:
+                    body = retry(lambda: fetch_body(tseq, tef))
+                except Exception as e:
+                    keep_or_fail(tname, p, f"본문 다운로드 실패: {e}")
+                    continue
+                if "lawcon" not in body:
+                    print("    ! 본문 형식이 예상과 다름 — 저장은 하되 확인 필요")
 
-            path = os.path.join(LAWS_DIR, fname)
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(body)
-            sha = hashlib.sha256(body.encode("utf-8")).hexdigest()
-            items.append({
-                "name": name, "group": grp["group"], "tier": law["tier"],
-                "ministry": grp["ministry"], "lsi_seq": lsi_seq, "ef_yd": ef_yd,
-                "file": "laws/" + fname, "sha256": sha,
-                "source_url": "https://www.law.go.kr/법령/" + name.replace(" ", ""),
-                "fetched_at": datetime.now(KST).isoformat(timespec="seconds"),
-            })
-            ok += 1
-            print(f"    v 저장 ({len(body)//1024} KB, lsiSeq {lsi_seq}, 시행 {ef_yd})")
-            time.sleep(0.7)  # 서버 예의
+                path = os.path.join(LAWS_DIR, fname)
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(body)
+                sha = hashlib.sha256(body.encode("utf-8")).hexdigest()
+                items.append({
+                    "name": tname, "group": grp["group"], "tier": law["tier"], "kind": tkind,
+                    "ministry": grp["ministry"], "lsi_seq": tseq, "ef_yd": tef,
+                    "file": "laws/" + fname, "sha256": sha,
+                    "source_url": "https://www.law.go.kr/법령/" + name.replace(" ", ""),
+                    "fetched_at": datetime.now(KST).isoformat(timespec="seconds"),
+                })
+                ok += 1
+                tag = " · 시행예정" if tkind == "future" else ""
+                print(f"    v 저장 ({len(body)//1024} KB, lsiSeq {tseq}, 시행 {tef}{tag})")
+                time.sleep(0.7)  # 서버 예의
 
     for adm in watchlist.get("admrul", []):
         name = adm["name"]

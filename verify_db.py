@@ -95,7 +95,9 @@ def check_coverage(con):
 # ── [2] 구성 요약 ─────────────────────────────────────────────
 def check_composition(con):
     print("\n[2] 구성 요약")
-    exp = {"law": (4000, 5000), "admrul": (400, 800), "kosha": (4000, 7000)}
+    # 범위를 넓게 둔다 — 법령 24건 추가(2026-10)·부칙·서식 수록으로 건수가 크게 늘었다.
+    # 하한은 '통째로 빠짐'을 잡기 위한 것이고, 법령별 누락은 [1]이 이름으로 잡는다.
+    exp = {"law": (4000, 40000), "admrul": (400, 5000), "kosha": (4000, 15000)}
     for kind, n in con.execute(
             "SELECT l.kind, COUNT(*) FROM articles a"
             " JOIN laws l ON l.law_id=a.law_id GROUP BY l.kind"):
@@ -106,7 +108,7 @@ def check_composition(con):
         else:
             problem(f"{line} — 기대범위({lo:,}~{hi:,}) 벗어남")
     annex = con.execute(
-        "SELECT COUNT(*), SUM(LENGTH(content)) FROM articles WHERE chapter='별표'"
+        "SELECT COUNT(*), SUM(LENGTH(content)) FROM articles WHERE chapter IN ('별표','서식')"
     ).fetchone()
     ok(f"별표 청크 {annex[0]:,}건 / {annex[1]:,}자")
     subs = con.execute("SELECT COUNT(DISTINCT cas) FROM substances WHERE cas!=''").fetchone()[0]
@@ -136,14 +138,14 @@ def check_integrity(con):
         ok("제어문자 0건")
 
     short = con.execute("""SELECT COUNT(*) FROM articles a
-                           WHERE a.chapter='별표' AND LENGTH(a.content) < 300
+                           WHERE a.chapter IN ('별표','서식') AND LENGTH(a.content) < 300
                              AND a.title NOT LIKE '%삭제%' AND a.jo_branch=0""").fetchone()[0]
     print(f"    (정보) 300자 미만 별표 {short}건 — 손실 여부는 [4]에서 원본 대조로 판정")
 
 
 # ── [4] 별표 손실률 (--full) ─────────────────────────────────
 def check_annex_loss(con, full=False):
-    print("\n[4] 별표 손실률" + ("" if full else " (요약 — 전수는 --full)"))
+    print("\n[4] 별표·서식 손실률" + ("" if full else " (요약 — 전수는 --full)"))
     mpath = os.path.join(BUNDLE, "annex_manifest.json")
     if not os.path.exists(mpath):
         problem("annex_manifest.json 없음")
@@ -158,7 +160,7 @@ def check_annex_loss(con, full=False):
         shorts = {(r[0], r[1]) for r in con.execute(
             """SELECT l.name, a.jo_short FROM articles a
                JOIN laws l ON l.law_id=a.law_id
-               WHERE a.chapter='별표' AND LENGTH(a.content)<300 AND a.jo_branch=0""")}
+               WHERE a.chapter IN ('별표','서식') AND LENGTH(a.content)<300 AND a.jo_branch=0""")}
         targets = [a for a in annexes
                    if os.path.getsize(os.path.join(BUNDLE, a["file"])) > 50000
                    or (a["law_name"], a["label"]) in shorts]
@@ -173,7 +175,7 @@ def check_annex_loss(con, full=False):
         db_len = con.execute(
             """SELECT SUM(LENGTH(content)) FROM articles a2
                JOIN laws l ON l.law_id=a2.law_id
-               WHERE l.name=? AND a2.jo_short=? AND a2.chapter='별표'""",
+               WHERE l.name=? AND a2.jo_short=? AND a2.chapter IN ('별표','서식')""",
             (a["law_name"], a["label"])).fetchone()[0] or 0
         checked += 1
         if db_len < len(src) * 0.9:
