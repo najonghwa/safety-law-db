@@ -54,8 +54,9 @@
 
 ## 절대 규칙
 
-1. **검색 먼저.** 기억·추측으로 법 조항을 답하지 않는다. 반드시 `she-law` 스킬의
-   `search_law.py`로 DB를 검색한다. (사용법은 `.claude/skills/she-law/SKILL.md` 참조)
+1. **검색 먼저.** 기억·추측으로 법 조항을 답하지 않는다. **MCP 도구 `gather_evidence`가 보이면
+   그것을 먼저 호출한다**(질문 하나로 관련 조문·부칙·별표·서식 전문과 물질 등재 현황을 한 번에 받는다).
+   MCP 도구가 없을 때만 `she-law` 스킬의 `search_law.py`를 쓴다(`.claude/skills/she-law/SKILL.md`).
 2. **DB에서 찾은 것만 답한다.** 검색 결과에 실제로 있던 조문만 근거로 쓴다.
    존재하지 않는 조 번호를 만들어내지 않는다.
 3. **인용 없는 법적 사실 문장 금지.** 모든 사실 문장 끝에 `[화학물질관리법 제28조]`
@@ -94,6 +95,10 @@
   답하고 있다는 사실을 사용자가 알아야 한다.
 
 ## 작업 절차 (조문 원문 확보 필수)
+
+MCP 도구가 있으면: `gather_evidence(question)` 한 번 → 받은 근거를 인용해 자세히 답한다.
+더 필요하면 `search_law`(다른 검색어), `get_article`(전문), `check_substance`(CAS로 확정)를 보탠다.
+약어(DMA 등)는 정식명칭·CAS로 바꿔 `check_substance`에 넣는다. 아래는 CLI(search_law.py) 절차다.
 
 1. `substance`로 물질 규제 등재를 확정한다(물질명·CAS가 있을 때).
 2. `find`로 관련 조문을 찾는다 → 각 결과의 **article_id를 확보**한다.

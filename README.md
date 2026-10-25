@@ -68,6 +68,23 @@ cp data/laws.db dist/she-law-db/data/
 `search_law.py`로 DB를 검색하고 근거 조문·원문을 인용해 답합니다.
 근거를 못 찾으면 지어내지 않고 "확인 불가"로 답합니다.
 
+### Claude가 알아서 DB를 보게 하기 — MCP 서버 (권장)
+
+`dist/she-law-db/.mcp.json`이 `she_law_mcp.py`를 Claude Code의 MCP 서버로 등록합니다. 그 폴더를
+열면 Claude Code가 도구(`gather_evidence`·`search_law`·`get_article`·`check_substance`·`list_laws`)를
+자동 인식하고(처음 한 번 "허용"), 법규 질문이 오면 먼저 DB를 보고 근거를 인용해 답합니다.
+표준 라이브러리만 쓰므로 설치할 게 없습니다. 목적은 검색기가 아니라 **클로드가 이 DB를 본 다음
+답하게 하는 것**이라 이 경로가 기본입니다.
+
+여러 사람이 쓸 때는 DB를 복사하지 않아도 됩니다 — 한 곳에서 대시보드(`app.py`, 8777)를 띄우고,
+각자의 `.mcp.json`에 `"env": {"SHE_LAW_API": "http://서버:8777"}`를 넣으면 중앙 DB를 씁니다.
+답변은 각자의 Claude Code가 만들므로 비용도 각자에게 갑니다.
+
+```bash
+cd dist/she-law-db
+python she_law_mcp.py --selftest "유해화학물질 영업허가를 받으려면?"   # 근거 묶음이 그대로 출력되면 정상
+```
+
 ### 직접 검색해보기 (터미널)
 
 ```bash
@@ -94,7 +111,9 @@ python search_law.py laws 화학물질관리법
 | `ocr_scans.py` | 스캔본 PDF·그림 별표 OCR 사이드카 (Windows, winocr) |
 | `laws.json` | **수집 대상 법령 목록** — 여기에 이름 추가하면 법 늘어남 |
 | `synonyms.json` | 현장용어→법령용어 사전 (폐액→지정폐기물 등) |
-| `dist/she-law-db/search_law.py` | Claude가 호출하는 검색 CLI (표준 라이브러리만) |
+| `dist/she-law-db/she_law_mcp.py` | **Claude Code MCP 서버** — 로컬 DB 또는 중앙 API(SHE_LAW_API) |
+| `dist/she-law-db/.mcp.json` | MCP 등록 설정 (폴더를 열면 자동 인식) |
+| `dist/she-law-db/search_law.py` | 검색 CLI (MCP가 없을 때의 대안, 표준 라이브러리만) |
 | `dist/she-law-db/CLAUDE.md` | Claude 답변 규칙 (인용 강제·근거 없으면 거부) |
 | `dist/she-law-db/.claude/skills/` | Claude Code 스킬 정의 |
 

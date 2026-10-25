@@ -33,6 +33,12 @@ description: >-
 - DB에 없는 일반 지식은 본문에 섞지 말고 맨 아래 `⚠ 참고(DB 미확인)`로 분리 표기.
 - 자세한 형식은 이 폴더의 `CLAUDE.md` 참조.
 
+## MCP 도구가 보이면 그것부터
+
+이 폴더의 `.mcp.json`이 `she_law_mcp.py`를 MCP 서버로 등록한다. 도구 목록에 `gather_evidence`·
+`search_law`·`get_article`·`check_substance`·`list_laws`가 보이면 CLI 대신 그 도구를 쓴다.
+법규 질문 → `gather_evidence(question)` 한 번이면 근거 묶음이 온다. 아래 CLI는 MCP가 없을 때의 대안.
+
 ## 사용하는 명령
 
 모두 JSON을 출력한다. `python search_law.py` 로 실행한다.
