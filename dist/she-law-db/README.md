@@ -52,7 +52,7 @@ claude mcp add --transport http -s user she-law http://서버IP:8780/mcp
   각자 `claude mcp list` 에서 she-law 옆에 Connected가 나오면 연결 정상.
 - DB 갱신은 서버 PC의 `data/laws.db`만 바꾸고 서버를 다시 켜면 됩니다.
 
-출처는 국가법령정보센터와 공공데이터포털(정부 공개 데이터)입니다.
+출처는 국가법령정보센터·공공데이터포털·화학물질종합정보시스템(정부 공개 데이터)입니다.
 
 ## 갱신 — 자동으로 안 됩니다
 
