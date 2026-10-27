@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "she-law": {
-      "command": "python",
-      "args": ["she_law_mcp.py"],
-      "env": {}
-    }
-  }
-}
