@@ -5,9 +5,10 @@ kosha_config.json
 
 # 대용량 산출물 (collector 돌리면 생성됨)
 bundle/
-data/
+/data/
 dist/mail/
-dist/she-law-db/data/
+dist/she-law-db/data/*
+!dist/she-law-db/data/laws.db.gz
 
 # 파이썬 캐시
 __pycache__/

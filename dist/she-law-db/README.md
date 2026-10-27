@@ -29,14 +29,21 @@ DB에 없는 내용은 평소처럼 클로드가 답하고, 그 부분은 `클�
 
 ## 여러 사람이 쓸 때 — 서버 하나에 각자 연결
 
-DB를 사람마다 복사하지 않아도 됩니다. 한 명이 서버를 켜 두면, 나머지는 명령 한 줄로
+DB를 사람마다 복사하지 않아도 됩니다. 서버 한 곳에서 켜 두면, 나머지는 명령 한 줄로
 그 서버를 자기 Claude Code의 도구로 붙입니다.
 
-서버 PC — 복원한 이 폴더에서:
+서버 — 깃허브에서 받아 켭니다(처음 한 번):
 
 ```
-python she_law_mcp.py --http 0.0.0.0:8780
+git clone https://github.com/najonghwa/safety-law-db.git
+cd safety-law-db/dist/she-law-db
+python3 setup_db.py
+nohup python3 she_law_mcp.py --http 0.0.0.0:8780 > she_law.log 2>&1 &
 ```
+
+`setup_db.py`는 DB 압축(`data/laws.db.gz`, 약 12MB)을 풀고 검색 인덱스를 만듭니다(1~2분).
+DB 원본(150MB)은 깃허브 파일 한도(100MB)를 넘어서 압축본만 올려 둡니다.
+메일로 받은 txt를 복원한 폴더라면 `setup_db.py` 없이 바로 서버를 켜면 됩니다.
 
 각자 PC — 파일도 DB도 필요 없음:
 
@@ -50,15 +57,16 @@ claude mcp add --transport http -s user she-law http://서버IP:8780/mcp
 - 서버 PC의 8780 포트가 사내망에서 열려 있어야 합니다(AWS면 보안 그룹 인바운드 규칙).
 - 확인: 브라우저에서 `http://서버IP:8780/health` → DB 기준일이 나오면 서버 정상.
   각자 `claude mcp list` 에서 she-law 옆에 Connected가 나오면 연결 정상.
-- DB 갱신은 서버 PC의 `data/laws.db`만 바꾸고 서버를 다시 켜면 됩니다.
+- DB 갱신은 서버에서 `git pull` → `python3 setup_db.py` 후 서버를 다시 켭니다
+  (`pkill -f she_law_mcp.py` 후 위 nohup 줄). 각자 할 일은 없습니다.
 
 출처는 국가법령정보센터·공공데이터포털·화학물질종합정보시스템(정부 공개 데이터)입니다.
 
 ## 갱신 — 자동으로 안 됩니다
 
-사내망은 인터넷이 안 되므로 이 DB는 **스스로 갱신되지 않습니다.**
-법령이 개정되면 외부(인터넷 되는 환경)에서 갱신한 DB를 다시 받아
-`data/laws.db` 파일만 교체해야 합니다.
+이 DB는 **스스로 갱신되지 않습니다.** 법령이 개정되면 인터넷 되는 PC에서 DB를 갱신해
+깃허브에 올리고, 서버에서 `git pull` → `python3 setup_db.py`로 받습니다.
+(메일로 받은 경우는 새 txt로 다시 복원하거나 `data/laws.db` 파일만 교체)
 
 답변에는 항상 `※ DB 기준일: YYYY-MM-DD`가 표시됩니다.
 기준일이 오래됐으면(90일 경과) 경고가 함께 나옵니다.
