@@ -7,8 +7,8 @@
 
 쓰는 방식 세 가지.
   혼자 쓰기  : 이 폴더를 Claude Code로 열면 .mcp.json 이 이 파일을 도구로 띄운다(로컬 DB).
-  여러 명    : 한 명이 서버로 켠다 — python she_law_mcp.py --http 0.0.0.0:8780
-              나머지는 각자 명령 한 줄 — claude mcp add --transport http -s user she-law http://서버IP:8780/mcp
+  여러 명    : 한 명이 서버로 켠다 — python she_law_mcp.py --http 0.0.0.0:8088
+              나머지는 각자 명령 한 줄 — claude mcp add --transport http -s user she-law http://서버IP:8088/mcp
               각자는 파일·DB가 필요 없고, 답을 쓰는 모델은 각자의 Claude Code(토큰도 각자).
   대시보드 API: 환경변수 SHE_LAW_API=http://서버:8777 이면 대시보드(app.py)의 검색 API를 부른다.
 
@@ -499,15 +499,15 @@ def main():
 def serve_http(bind):
     """여러 명이 쓰는 서버 모드 — MCP를 HTTP로 연다(Streamable HTTP, JSON 응답).
 
-    서버 PC에서:   python she_law_mcp.py --http 0.0.0.0:8780
-    각자 PC에서:   claude mcp add --transport http -s user she-law http://서버IP:8780/mcp
+    서버 PC에서:   python she_law_mcp.py --http 0.0.0.0:8088
+    각자 PC에서:   claude mcp add --transport http -s user she-law http://서버IP:8088/mcp
     각자는 파일도 DB도 필요 없다. 도구 호출(조문 검색)만 이 서버로 오고, 질문을 읽고 답을 쓰는
     모델은 각자의 Claude Code라 토큰도 각자의 계정에서 나간다. 이 서버는 검색만 하고 AI를 부르지 않는다.
     """
     import uuid
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
     host, _, port = bind.rpartition(":")
-    host, port = host or "0.0.0.0", int(port or 8780)
+    host, port = host or "0.0.0.0", int(port or 8088)
 
     class H(BaseHTTPRequestHandler):
         def _send(self, code, body=None, extra=None):
@@ -563,8 +563,8 @@ if __name__ == "__main__":
         q = sys.argv[-1] if len(sys.argv) > 2 else "유해화학물질 영업허가를 받으려면 무엇이 필요한가?"
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
         print(gather(q))
-    elif "--http" in sys.argv:      # python she_law_mcp.py --http 0.0.0.0:8780
+    elif "--http" in sys.argv:      # python she_law_mcp.py --http 0.0.0.0:8088
         i = sys.argv.index("--http")
-        serve_http(sys.argv[i + 1] if i + 1 < len(sys.argv) and not sys.argv[i + 1].startswith("-") else "0.0.0.0:8780")
+        serve_http(sys.argv[i + 1] if i + 1 < len(sys.argv) and not sys.argv[i + 1].startswith("-") else "0.0.0.0:8088")
     else:
         main()
