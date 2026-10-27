@@ -4,7 +4,7 @@
   git clone https://github.com/najonghwa/safety-law-db.git
   cd safety-law-db/dist/she-law-db
   python3 setup_db.py
-  python3 she_law_mcp.py --http 0.0.0.0:8780
+  sh run_server.sh            (포트 8088로 서버 켜기)
 
 DB 파일(150MB)은 깃허브 한도(파일당 100MB)를 넘어서, 검색 인덱스를 뺀 DB를 gzip으로 묶어 올린다(약 12MB).
 압축이 지난번과 같으면 아무것도 하지 않는다(--force로 다시 만들기).
@@ -77,7 +77,7 @@ def main():
     os.replace(tmp, DB)
     with open(STAMP, "w", encoding="ascii") as f:
         f.write(fp)
-    print("[OK] DB 준비 완료. 서버:  python3 she_law_mcp.py --http 0.0.0.0:8780")
+    print("[OK] DB 준비 완료. 다음:  sh run_server.sh   (이미 켜져 있었다면 update.sh가 다시 켭니다)")
 
 
 if __name__ == "__main__":
