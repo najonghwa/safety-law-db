@@ -3,7 +3,7 @@
 #   sh autostart.sh           (포트 8088)
 #   sh autostart.sh 8780      (다른 포트)
 #   sh autostart.sh off       (자동 시작 해제)
-# 1) cron: 워크스페이스가 켜질 때 + 5분마다 서버를 확인해 꺼져 있으면 켠다
+# 1) cron: 워크스페이스가 켜질 때 + 5분마다 서버를 확인해 꺼져 있으면 켠다, 평일 07:40 깃허브 최신본 받기
 # 2) 터미널을 열 때도 같은 확인(cron이 안 도는 환경 대비)
 DIR="$(cd "$(dirname "$0")" && pwd)"
 MARK="# she-law autostart"
@@ -18,8 +18,10 @@ PY="${PY:-$(command -v python3 || command -v python)}"
 LINE="PY=$PY sh $DIR/ensure_server.sh $PORT >/dev/null 2>&1"
 
 if command -v crontab >/dev/null 2>&1; then
-  (crontab -l 2>/dev/null | grep -v "$MARK"; echo "@reboot $LINE $MARK"; echo "*/5 * * * * $LINE $MARK") | crontab -
-  echo "[OK] cron 등록 — 워크스페이스가 켜질 때, 그리고 5분마다 서버를 확인해 꺼져 있으면 켭니다"
+  UPD="PY=$PY sh $DIR/update.sh $PORT >> $DIR/update.log 2>&1"
+  (crontab -l 2>/dev/null | grep -v "$MARK"; echo "@reboot $LINE $MARK"; echo "*/5 * * * * $LINE $MARK";
+   echo "40 7 * * 1-5 $UPD $MARK") | crontab -
+  echo "[OK] cron 등록 — 워크스페이스가 켜질 때·5분마다 서버 확인, 평일 07:40 깃허브 최신본 받기(update.log)"
   # crontab 명령이 있어도 cron 프로그램이 안 돌면 등록만 되고 실행되지 않는다
   if command -v pgrep >/dev/null 2>&1; then
     if pgrep -x cron >/dev/null 2>&1 || pgrep -x crond >/dev/null 2>&1; then

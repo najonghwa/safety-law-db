@@ -39,11 +39,12 @@ _JOSA = re.compile(r"(에서는|에서도|에서의|으로는|으로도|으로�
                    r"이나|나|라도|든지|처럼|보다|마다|조차|밖에)$")
 _ENDING = re.compile(r"(하려면|하려는|하려고|해야|하는|한|할|합니다|해도|하고|하면|"
                      r"되는|된|될|시|시에|중인|중|나요|가요|까요|습니까|입니까|인가요|인지|한지|할지)$")
-TIMING_Q = re.compile("경과조치|시행일|언제부터|개정 전|개정전|유예|종전|계속 유효|소급|적용례")
+TIMING_Q = re.compile("경과조치|시행일|언제부터|언제까지|기한|개정 전|개정전|유예|종전|계속 유효|소급|적용례")
 FORM_Q = re.compile("서식|신청서|양식|별지|제출서류|첨부서류|작성해야")
 # 시점 질문에서 '경과조치'와 함께 찾을 핵심어를 고를 때 빼는 말 — 시점·상태를 나타낼 뿐 조문을 가리키지 않는다
 TIMING_WORDS = {"개정", "전", "계속", "유효", "유효한", "종전", "이전", "시행", "언제", "적용", "유예", "소급",
-                "받은", "받았던", "기존", "이미", "예전", "지금", "아직", "되나", "되는지", "부터", "언제부터"}
+                "받은", "받았던", "기존", "이미", "예전", "지금", "아직", "되나", "되는지", "부터", "언제부터",
+                "언제까지", "언제까지야", "기한", "까지", "유효해"}
 CAS_RE = re.compile(r"\b(\d{2,7}-\d{2}-\d)\b")
 
 _syn = None
@@ -254,18 +255,35 @@ def db_date():
 
 
 # ── 근거 묶음 만들기 (핵심 도구) ────────────────────────────────
+def _promulgated_year(label):
+    """'부칙 제5조(…) <환경부령 제1184호, 2025. 8. 7.>' → 2025 (없으면 None)."""
+    ys = re.findall(r"(\d{4})\.\s*\d{1,2}\.\s*\d{1,2}\.", label)
+    return int(ys[-1]) if ys else None
+
+
 def rank(r, q):
     tier, label, name = r.get("tier", ""), r.get("jo_label", ""), r.get("law_name", "")
     if tier == "KOSHA" or r.get("kind") == "kosha":
         return 3
     if label.startswith(("서식", "별지")):
-        return 0.5 if FORM_Q.search(q) else 2.5
+        # 양식을 물으면 본문 조문보다 앞에(안 그러면 법률 조문이 열 칸을 다 채운다), 아니면 맨 뒤 쪽
+        return -0.2 if FORM_Q.search(q) else 2.5
     if label.startswith("별표"):
         return 2
     if label.startswith("부칙"):
+        # 다른 법을 고치는 부칙('다른 법령의 개정')은 그 법의 경과조치가 아니라 거의 늘 잡음이다
+        if "다른 법령의 개정" in label or "다른 법률의 개정" in label:
+            return 4
         # 시점 질문("개정 전 허가는", "언제부터")의 직접 근거는 부칙이라 본문보다 앞에, 아니면 본문 뒤에.
         # 같은 부칙이라도 법률 > 시행령·규칙 > 고시 — 고시는 해마다 비슷한 경과조치가 되풀이된다.
         base = (-0.5 if TIMING_Q.search(q) else 1.5) + {"법률": 0, "시행령": 0.1, "시행규칙": 0.1}.get(tier, 0.2)
+        # 오래된 부칙은 조금씩 뒤로(1년에 0.03, 최대 0.6) — 같은 법령 안에서 지금 살아 있는 경과조치가 먼저 뽑히게.
+        # 질문에 연도가 있으면 그 해 부칙을 앞으로.
+        y = _promulgated_year(label)
+        if y:
+            base += min(0.6, max(0, datetime.date.today().year - y) * 0.03)
+            if str(y) in re.findall(r"(20\d{2})년", q):
+                base -= 0.3
     else:
         base = 0 if tier == "법률" else 1
     return base + (0.25 if "(시행예정" in name else 0)
@@ -280,7 +298,8 @@ def gather(question, max_articles=10):
         combos += [kws_law[:i] for i in range(len(kws_law), 0, -1)]
     combos += [kws[:i] for i in range(len(kws), 0, -1)] + [[k] for k in kws]
     if TIMING_Q.search(question):   # 부칙은 "경과조치"라는 말로만 잡힌다
-        core = [k for k in kws if k not in TIMING_WORDS and not k.endswith("법")][:2]
+        core = [k for k in kws if k not in TIMING_WORDS and not k.endswith("법")
+                and not re.fullmatch(r"\d{4}년?", k)][:2]
         if core:
             combos.insert(0, core + ["경과조치"])
     buckets, uniq, tried = [], {}, set()
@@ -303,8 +322,12 @@ def gather(question, max_articles=10):
     ordered = sorted((uniq[a] for a in score), key=lambda r: (-score[r["article_id"]]))
     # 부칙은 법령마다 2개까지 — 고시가 개정될 때마다 비슷한 경과조치가 쌓여 있어, 막지 않으면
     # 한 고시의 부칙이 열 칸을 다 채우고 정작 법률 부칙이 밀려난다(실제로 있던 일).
-    picked, per_law = [], {}
+    picked, per_law, forms = [], {}, 0
     for r in sorted(ordered, key=lambda r: rank(r, question)):
+        if r.get("jo_label", "").startswith(("서식", "별지")):
+            if forms >= 3:              # 양식은 3개까지 — 나머지 칸은 의무의 근거인 본문 조문에
+                continue
+            forms += 1
         if r.get("jo_label", "").startswith("부칙"):
             key = r.get("law_name", "")
             if per_law.get(key, 0) >= 2:
@@ -329,7 +352,9 @@ def gather(question, max_articles=10):
     subs = subs[:12]
 
     stamp, warn = db_date()
-    lines = [f"[안전법규 DB 근거 — 기준일 {stamp}]{warn}", ""]
+    lines = [f"[안전법규 DB 근거 — 기준일 {stamp}]{warn}",
+             "※ 최종 답변 순서: 클로드 탐색(도구 전에 정리한 답 그대로) → 법령 DB 확인(맞음·보충·바로잡음·확인 안 됨) → 정리. "
+             "자세한 방법은 맨 아래.", ""]
     if subs:
         lines.append("■ 물질 규제 등재 현황 (별표·지정목록 대조 — 확정 정보, CAS로 확인할 것)")
         for s in subs:
@@ -341,8 +366,8 @@ def gather(question, max_articles=10):
     for i, r in enumerate(ordered, 1):
         full = article(r["article_id"]) or {}
         body = (full.get("content") or "").strip()
-        if len(body) > 3000:
-            body = body[:3000] + " …(이하 생략 — 필요하면 get_article)"
+        if len(body) > 2000:
+            body = body[:2000] + " …(이하 생략 — 필요하면 get_article)"
         tag = ""
         lab = r.get("jo_label", "")
         if lab.startswith("부칙"):
@@ -359,12 +384,14 @@ def gather(question, max_articles=10):
             lines.append(f"  원문: {link}")
         lines.append("  " + body.replace("\n", "\n  "))
         lines.append("")
+    lines.append(f"※ 검색 범위: 이번에 받은 조문 {len(ordered)}건 기준 — 질문과 관련된 조문이 DB에 더 있을 수 있다.")
     lines.append("※ 답변 방법: 질문과 상관없는 조문은 무시할 것(검색이 넓게 잡힌 것). 최종 답변은 이 순서로 쓸 것 — "
                  "① '클로드 탐색': 이 도구를 부르기 전에 정리한 답을 위 조문으로 고치지 말고 그대로 적는다"
                  "(도구 전에 쓴 글은 화면 본문에 안 보일 수 있으니 여기 다시 적는다. 정리해 둔 게 없으면 위 결과를 보기 전 알던 내용 기준). "
-                 "② '법령 DB 확인': 첫 줄 '맞음 N · 보충 N · 바로잡음 N'(0은 뺌), 항목마다 원문 핵심 문구와 [법령명 조](위에 있는 조문에만). "
-                 "맞음 = ①에서 원문으로 확인된 것, 보충 = ①에 없던 기한·수량·예외·경과조치 등, "
-                 "바로잡음 = ① 중 원문과 다른 것('위에서 …라고 했으나 원문은 …'). ③ '정리': 바로잡은 것이 있으면 고친 결론 한두 줄. "
+                 "② '법령 DB 확인': 첫 줄 '맞음 N · 보충 N · 바로잡음 N · 확인 안 됨 N'(0은 뺌), 항목마다 원문 핵심 문구와 "
+                 "[법령명 조](위에 있는 조문에만). 맞음 = ① 중 위 조문 문구로 직접 확인된 것만, 보충 = ①에 없던 기한·수량·예외·경과조치 등, "
+                 "바로잡음 = ① 중 원문과 다른 것('위에서 …라고 했으나 원문은 …'), 확인 안 됨 = ①의 조 번호·수치·기한 중 위 조문에서 "
+                 "근거를 못 찾은 것(틀렸다는 뜻이 아니라 이번 검색으로 확인 못 했다는 뜻 — 한 줄로). ③ '정리': 바로잡은 것이 있으면 고친 결론 한두 줄. "
                  "부칙은 적용 시점(지난 기한은 지났다고), 서식은 양식 항목에만, 시행예정은 날짜를 밝혀 현행과 구분. "
                  "끝에 DB 기준일과 '법적 판단 전 원문(law.go.kr) 확인 필요'.")
     return "\n".join(lines)
@@ -380,9 +407,10 @@ INSTRUCTIONS = (
     "(1) 도구를 부르기 전에, DB를 보기 전 평소 지식으로 답을 먼저 정리한다. "
     "(2) gather_evidence 를 호출한다(필요하면 search_law·get_article·check_substance 를 더 부른다). "
     "(3) 최종 답변을 이 순서로 쓴다 — ① '클로드 탐색': (1)의 답을 DB 결과로 고치지 말고 그대로 적는다(도구 전에 쓴 글은 "
-    "화면 본문에 안 보일 수 있으니 반드시 다시 적는다). ② '법령 DB 확인': 첫 줄 '맞음 N · 보충 N · 바로잡음 N'(0은 뺀다), "
+    "화면 본문에 안 보일 수 있으니 반드시 다시 적는다). ② '법령 DB 확인': 첫 줄 '맞음 N · 보충 N · 바로잡음 N · 확인 안 됨 N'(0은 뺀다), "
     "맞음 = ① 중 원문으로 확인된 것, 보충 = ①에 없고 DB에만 있는 것(기한·수량·예외·부칙 경과조치·별표 수치), "
-    "바로잡음 = ① 중 원문과 다른 것('위에서 …라고 했으나 원문은 …'). 항목마다 원문 핵심 문구와 [법령명 제N조]를 "
+    "바로잡음 = ① 중 원문과 다른 것('위에서 …라고 했으나 원문은 …'), 확인 안 됨 = ①의 조 번호·수치·기한 중 받은 조문에서 "
+    "근거를 못 찾은 것(틀렸다는 뜻이 아님). 맞음은 받은 조문 문구로 직접 확인된 것만 쓴다. 항목마다 원문 핵심 문구와 [법령명 제N조]를 "
     "붙이되, 이 표시는 실제로 받은 조문에만 쓴다. 맞는 조문이 없으면 ②는 쓰지 않는다. "
     "③ '정리': 바로잡은 것이 있으면 고친 결론 한두 줄. "
     "(4) 물질은 check_substance 결과(별표 대조)가 확정 정보다 — 목록에 없다고 '규제 없음'으로 단정하지 않는다. "
@@ -531,7 +559,8 @@ def serve_http(bind):
                 self.wfile.write(data)
 
         def do_POST(self):
-            if self.path.rstrip("/") != "/mcp":
+            path = self.path.split("?")[0].rstrip("/")
+            if not path.endswith("/mcp"):          # 앞에 프록시 경로가 붙어도(…/apps/8088/mcp) 받는다
                 return self._send(404, {"error": "endpoint is /mcp"})
             try:
                 n = int(self.headers.get("Content-Length") or 0)
@@ -549,13 +578,14 @@ def serve_http(bind):
             self._send(200, out if isinstance(msg, list) else out[0], extra)
 
         def do_GET(self):
-            if self.path.rstrip("/") in ("", "/health"):
+            path = self.path.split("?")[0].rstrip("/")
+            if path in ("",) or path.endswith("/health"):
                 stamp, _ = db_date()
                 return self._send(200, {"ok": True, "server": "safe-law", "db_date": stamp, "mcp": "/mcp"})
             self._send(405, None, {"Allow": "POST"})           # 서버→클라이언트 SSE 스트림은 쓰지 않는다
 
         def do_DELETE(self):
-            self._send(200 if self.path.rstrip("/") == "/mcp" else 404, None)
+            self._send(200 if self.path.split("?")[0].rstrip("/").endswith("/mcp") else 404, None)
 
         def log_message(self, fmt, *a):
             log("[http]", self.address_string(), fmt % a)
