@@ -18,7 +18,7 @@ sleep 2
 
 if "$PY" -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:$PORT/health', timeout=5).read().decode())"; then
   echo "[OK] 서버 켜짐 — 포트 $PORT"
-  echo "     내 워크스페이스에서 연결: claude mcp add --transport http -s user she-law http://127.0.0.1:$PORT/mcp"
+  echo "     내 워크스페이스에서 연결: claude mcp add --transport http -s user safe-law http://127.0.0.1:$PORT/mcp"
   echo "     끄기: kill \$(cat she_law.pid)   기록: she_law.log"
 else
   echo "!! 서버가 응답하지 않습니다 — she_law.log 마지막 줄:"

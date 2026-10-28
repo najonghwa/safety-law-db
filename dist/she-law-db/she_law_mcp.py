@@ -8,7 +8,7 @@
 쓰는 방식 세 가지.
   혼자 쓰기  : 이 폴더를 Claude Code로 열면 .mcp.json 이 이 파일을 도구로 띄운다(로컬 DB).
   여러 명    : 한 명이 서버로 켠다 — python she_law_mcp.py --http 0.0.0.0:8088
-              나머지는 각자 명령 한 줄 — claude mcp add --transport http -s user she-law http://서버IP:8088/mcp
+              나머지는 각자 명령 한 줄 — claude mcp add --transport http -s user safe-law http://서버IP:8088/mcp
               각자는 파일·DB가 필요 없고, 답을 쓰는 모델은 각자의 Claude Code(토큰도 각자).
   대시보드 API: 환경변수 SHE_LAW_API=http://서버:8777 이면 대시보드(app.py)의 검색 API를 부른다.
 
@@ -466,7 +466,7 @@ def handle(req):
             return {"jsonrpc": "2.0", "id": rid, "result": {
                 "protocolVersion": params.get("protocolVersion") or PROTOCOL,
                 "capabilities": {"tools": {"listChanged": False}},
-                "serverInfo": {"name": "she-law", "version": "1.1"},
+                "serverInfo": {"name": "safe-law", "version": "1.1"},
                 "instructions": INSTRUCTIONS}}
         if method.startswith("notifications/"):
             return None
@@ -508,7 +508,7 @@ def serve_http(bind):
     """여러 명이 쓰는 서버 모드 — MCP를 HTTP로 연다(Streamable HTTP, JSON 응답).
 
     서버 PC에서:   python she_law_mcp.py --http 0.0.0.0:8088
-    각자 PC에서:   claude mcp add --transport http -s user she-law http://서버IP:8088/mcp
+    각자 PC에서:   claude mcp add --transport http -s user safe-law http://서버IP:8088/mcp
     각자는 파일도 DB도 필요 없다. 도구 호출(조문 검색)만 이 서버로 오고, 질문을 읽고 답을 쓰는
     모델은 각자의 Claude Code라 토큰도 각자의 계정에서 나간다. 이 서버는 검색만 하고 AI를 부르지 않는다.
     """
@@ -551,7 +551,7 @@ def serve_http(bind):
         def do_GET(self):
             if self.path.rstrip("/") in ("", "/health"):
                 stamp, _ = db_date()
-                return self._send(200, {"ok": True, "server": "she-law", "db_date": stamp, "mcp": "/mcp"})
+                return self._send(200, {"ok": True, "server": "safe-law", "db_date": stamp, "mcp": "/mcp"})
             self._send(405, None, {"Allow": "POST"})           # 서버→클라이언트 SSE 스트림은 쓰지 않는다
 
         def do_DELETE(self):
@@ -561,8 +561,8 @@ def serve_http(bind):
             log("[http]", self.address_string(), fmt % a)
 
     stamp, _ = db_date()
-    log(f"she-law MCP 서버 — http://{host}:{port}/mcp (DB 기준일 {stamp})")
-    log(f"각자 PC에서:  claude mcp add --transport http -s user she-law http://<이 PC의 IP>:{port}/mcp")
+    log(f"safe-law MCP 서버 — http://{host}:{port}/mcp (DB 기준일 {stamp})")
+    log(f"각자 PC에서:  claude mcp add --transport http -s user safe-law http://<이 PC의 IP>:{port}/mcp")
     ThreadingHTTPServer((host, port), H).serve_forever()
 
 

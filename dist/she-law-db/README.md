@@ -9,7 +9,7 @@ Claude가 DB를 검색해 **근거 조문을 인용해서** 답합니다.
 
    - 깃허브로 받았다면 이 폴더에서 `sh install.sh` (아래 '여러 사람이 쓸 때' 방법 1)
    - 메일 txt로 복원했다면 Claude Code에서 이 폴더를 열고, 처음 한 번 "허용"을 누릅니다
-     (복원 스크립트가 만든 `.mcp.json`이 she-law 도구를 띄웁니다)
+     (복원 스크립트가 만든 `.mcp.json`이 safe-law 도구를 띄웁니다)
 
 **2. 질문한다** — 평소처럼
 
@@ -40,7 +40,7 @@ cd safety-law-db/dist/she-law-db
 sh install.sh
 ```
 
-- `install.sh`가 DB를 준비하고(1~2분) she-law를 내 Claude Code에 등록합니다(`-s user`, 어느 폴더에서나).
+- `install.sh`가 DB를 준비하고(1~2분) safe-law를 내 Claude Code에 등록합니다(`-s user`, 어느 폴더에서나).
 - 서버도 포트도 필요 없습니다. Claude Code가 켜질 때 도구가 같이 켜지고, 끄면 같이 꺼집니다.
 - 갱신: 같은 폴더에서 `sh update.sh`. 용량은 약 170MB(DB 150MB)입니다.
 
@@ -68,7 +68,7 @@ DB 원본(150MB)은 깃허브 파일 한도(100MB)를 넘어서 압축본만 올
 각자 PC — 파일도 DB도 필요 없음:
 
 ```
-claude mcp add --transport http -s user she-law http://서버IP:8088/mcp
+claude mcp add --transport http -s user safe-law http://서버IP:8088/mcp
 ```
 
 - 서버는 조문 검색만 합니다. AI를 부르지 않으므로 서버 쪽 비용은 없습니다.
@@ -77,7 +77,7 @@ claude mcp add --transport http -s user she-law http://서버IP:8088/mcp
 - 서버의 8088 포트가 사내망에 공유돼 있어야 합니다(워크스페이스 쉐어드 포트, AWS면 보안 그룹 인바운드 규칙).
   `서버IP:8088` 자리는 쉐어드 포트 설정에 나오는 주소를 씁니다. 서버 워크스페이스 자신은 `http://127.0.0.1:8088/mcp`.
 - 확인: 브라우저에서 `http://서버IP:8088/health` → DB 기준일이 나오면 서버 정상.
-  각자 `claude mcp list` 에서 she-law 옆에 Connected가 나오면 연결 정상.
+  각자 `claude mcp list` 에서 safe-law 옆에 Connected가 나오면 연결 정상.
 - DB 갱신은 서버의 이 폴더에서 `sh update.sh` 한 줄(git pull → setup_db.py → 서버 다시 켜기). 각자 할 일은 없습니다.
 
 출처는 국가법령정보센터·공공데이터포털·화학물질종합정보시스템(정부 공개 데이터)입니다.

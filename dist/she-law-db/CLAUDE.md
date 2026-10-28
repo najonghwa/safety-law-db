@@ -12,7 +12,7 @@
    이 답을 DB 결과로 고치지 말고 그대로 다시 적는다.
 2. **DB를 본다.** MCP 도구 `gather_evidence`를 호출한다(질문 하나로 관련 조문·부칙·별표·서식 전문과
    물질 등재 현황을 한 번에 받는다). 필요하면 `search_law`·`get_article`·`check_substance`를 더 부른다.
-   MCP 도구가 없으면 `she-law` 스킬의 `search_law.py`를 쓴다(`.claude/skills/she-law/SKILL.md`).
+   MCP 도구가 없으면 `safe-law` 스킬의 `search_law.py`를 쓴다(`.claude/skills/safe-law/SKILL.md`).
 3. **법령 DB 확인 — 1의 답을 원문으로 검증한다.** 첫 줄에 `맞음 N · 보충 N · 바로잡음 N`(0인 항목은 뺀다).
    - **맞음** — 1의 내용 중 원문으로 확인된 것.
    - **보충** — 1에 없고 DB에만 있는 것(기한·수량 기준·예외·부칙 경과조치·별표 수치 등).
