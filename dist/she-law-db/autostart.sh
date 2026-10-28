@@ -20,6 +20,14 @@ LINE="PY=$PY sh $DIR/ensure_server.sh $PORT >/dev/null 2>&1"
 if command -v crontab >/dev/null 2>&1; then
   (crontab -l 2>/dev/null | grep -v "$MARK"; echo "@reboot $LINE $MARK"; echo "*/5 * * * * $LINE $MARK") | crontab -
   echo "[OK] cron 등록 — 워크스페이스가 켜질 때, 그리고 5분마다 서버를 확인해 꺼져 있으면 켭니다"
+  # crontab 명령이 있어도 cron 프로그램이 안 돌면 등록만 되고 실행되지 않는다
+  if command -v pgrep >/dev/null 2>&1; then
+    if pgrep -x cron >/dev/null 2>&1 || pgrep -x crond >/dev/null 2>&1; then
+      echo "[OK] cron 동작 중 — 워크스페이스가 켜지면 서버도 같이 켜집니다"
+    else
+      echo "! cron 이 돌고 있지 않습니다 — 워크스페이스가 켜질 때 자동으로는 안 켜지고, 터미널을 열 때 켜집니다"
+    fi
+  fi
 else
   echo "! crontab 이 없습니다 — 터미널을 열 때 켜지도록만 등록합니다"
 fi
