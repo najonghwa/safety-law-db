@@ -8,7 +8,9 @@ PY="${PY:-$(command -v python3 || command -v python)}"
 cd "$(dirname "$0")" || exit 1
 
 # 전에 켠 서버 끄기 — 같은 포트에 옛 서버가 남아 있으면 새 서버가 못 뜬다
-if [ -f she_law.pid ]; then kill "$(cat she_law.pid)" 2>/dev/null; fi
+# pid 파일의 번호는 그게 우리 서버일 때만 끈다 — 워크스페이스를 껐다 켜면 같은 번호를 다른 프로그램이 쓰고 있을 수 있다
+P="$(cat she_law.pid 2>/dev/null)"
+if [ -n "$P" ] && { tr '\0' ' ' < "/proc/$P/cmdline"; } 2>/dev/null | grep -q she_law_mcp; then kill "$P" 2>/dev/null; fi
 pkill -f "she_law_mcp.py --http" 2>/dev/null
 sleep 1
 
