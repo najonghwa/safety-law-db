@@ -60,9 +60,8 @@ sh run_server.sh
 
 `setup_db.py`는 DB 압축(`data/laws.db.gz`, 약 12MB)을 풀고 검색 인덱스를 만듭니다(1~2분).
 `run_server.sh`는 포트 8088로 서버를 켜고(창을 닫아도 계속 돎) 응답까지 확인합니다. 다른 포트는 `sh run_server.sh 8780`.
-워크스페이스가 껐다 켜질 때 서버도 저절로 켜지게 하려면 `sh autostart.sh`를 한 번 실행합니다
-(cron으로 켜질 때와 5분마다 확인, 터미널을 열 때도 확인, 평일 07:40에 깃허브 최신본을 받아
-코드가 바뀌었을 때만 서버를 다시 켬 — 기록 `update.log` · 해제는 `sh autostart.sh off`).
+워크스페이스를 껐다 켜면 서버도 꺼집니다. `sh autostart.sh`를 한 번 실행해 두면 터미널을 열 때
+서버가 꺼져 있으면 켭니다(해제는 `sh autostart.sh off`).
 DB 원본(150MB)은 깃허브 파일 한도(100MB)를 넘어서 압축본만 올려 둡니다.
 메일로 받은 txt를 복원한 폴더라면 `setup_db.py` 없이 바로 서버를 켜면 됩니다.
 

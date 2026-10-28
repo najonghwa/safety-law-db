@@ -2,7 +2,7 @@
 # 갱신 — 깃허브에서 새 DB·코드 받기 → DB 준비 → 바뀐 게 있을 때만 서버 다시 켜기.
 #   sh update.sh          (서버 포트 8088)
 #   sh update.sh 8780     (서버를 다른 포트로 켜 두었다면)
-# autostart.sh를 실행해 두면 평일 아침 7시 40분에 저절로 돈다(기록: update.log).
+# 저절로 돌지 않는다 — 깃허브에 새 DB·코드가 올라오면 서버에서 한 번 실행한다.
 PORT="${1:-8088}"
 PY="${PY:-$(command -v python3 || command -v python)}"
 cd "$(dirname "$0")" || exit 1
